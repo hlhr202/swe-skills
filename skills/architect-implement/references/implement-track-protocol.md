@@ -140,20 +140,27 @@ The track's `plan.md` is the source of truth for implementation scope. `architec
 
 An actionable sub-task is an indented checkbox line using `[ ]`, `[~]`, or `[x]`. Plain bullets, notes, summaries, and explanatory lines are not actionable sub-tasks and do not participate in status progression.
 
+A phase is a markdown heading beginning with `##`. A task belongs to the nearest preceding phase heading. A phase is complete only when every parent task in that phase is marked `[x]` and every actionable sub-task under those parent tasks is marked `[x]`.
+
+The generated parent task named `Task: Architect - User Manual Verification '<Phase Name>' (Protocol in workflow.md)` is a phase protocol meta-task. Do not treat it as normal implementation work. When all non-meta parent tasks in a phase are complete, this meta-task is the next required task and Section 7 must run for the named phase before any later phase can begin.
+
 Loop through tasks in `plan.md` sequentially.
+
+Before selecting any normal parent task, scan phases in file order. If every non-meta parent task and actionable sub-task in a phase is `[x]` but that phase's protocol meta-task is `[ ]` or `[~]`, select that meta-task next even when another later-phase parent task is already `[~]`. Do not continue later-phase work until the earlier phase protocol meta-task is `[x]`.
 
 For each task:
 
-1. Resume the first parent task marked `[~]`. If no parent task is `[~]`, select the next parent task marked `[ ]`. If no parent task is `[~]` or `[ ]`, run a final scan of `plan.md`; if no parent task or actionable sub-task remains `[ ]` or `[~]`, stop the task loop and proceed to Section 8. If unfinished actionable work remains in an unrecognized structure, halt and report the malformed plan.
+1. Resume the first parent task marked `[~]`, except when the pre-selection scan above finds an earlier pending phase protocol meta-task. If no parent task is `[~]`, select the next parent task marked `[ ]`. If no parent task is `[~]` or `[ ]`, run a final scan of `plan.md`; if no parent task or actionable sub-task remains `[ ]` or `[~]`, stop the task loop and proceed to Section 8. If unfinished actionable work remains in an unrecognized structure, halt and report the malformed plan.
 2. If the selected parent task was `[ ]`, mark it `[~]` in `plan.md` and save the file before changing application code.
-3. Execute sub-tasks in order. Resume the first actionable sub-task marked `[~]`; otherwise select the next actionable sub-task marked `[ ]`. When a sub-task is `[ ]`, mark it `[~]`, save `plan.md`, complete the work, then mark it `[x]` and save `plan.md` again. Do not skip `[~]` sub-tasks.
-4. Execute subtasks according to `architect/workflow.md`.
-5. Use tests, verification, and documentation rules from the workflow.
-6. Conduct every human-in-the-loop workflow step through the active agent runtime's user-interaction mechanism.
-7. Do not mark multiple parent tasks complete in one batch; complete and record one parent task at a time.
-8. When all sub-tasks for the parent task are complete, update the parent task from `[~]` to `[x]` and save `plan.md`. If the parent task has no actionable sub-tasks, complete the parent task itself according to `architect/workflow.md` before marking it `[x]`.
-9. Record a task summary in the format required by the workflow. If no commit exists, use the workflow's `no-commit` convention.
-10. After each parent task, check whether the completed task concludes a phase and whether Section 7 must run.
+3. If the selected parent task is the generated phase protocol meta-task, skip normal implementation work, run Section 7 immediately for the named phase, then return to the task loop without executing the remaining steps below for that meta-task.
+4. Execute sub-tasks in order. Resume the first actionable sub-task marked `[~]`; otherwise select the next actionable sub-task marked `[ ]`. When a sub-task is `[ ]`, mark it `[~]`, save `plan.md`, complete the work, then mark it `[x]` and save `plan.md` again. Do not skip `[~]` sub-tasks.
+5. Execute subtasks according to `architect/workflow.md`.
+6. Use tests, verification, and documentation rules from the workflow.
+7. Conduct every human-in-the-loop workflow step through the active agent runtime's user-interaction mechanism.
+8. Do not mark multiple parent tasks complete in one batch; complete and record one parent task at a time.
+9. When all sub-tasks for the parent task are complete, update the parent task from `[~]` to `[x]` and save `plan.md`. If the parent task has no actionable sub-tasks, complete the parent task itself according to `architect/workflow.md` before marking it `[x]`.
+10. Record a task summary in the format required by the workflow. If no commit exists, use the workflow's `no-commit` convention.
+11. After each non-meta parent task, determine its phase and rescan that phase. If every non-meta parent task and actionable sub-task in that phase is `[x]`, the next selected task must be the phase protocol meta-task when one exists. If no phase protocol meta-task exists and every parent task in the phase is `[x]`, Section 7 must run immediately before selecting any task from the next phase.
 
 Implementation rules:
 
@@ -165,12 +172,23 @@ Implementation rules:
 
 ## 7. Phase Completion Protocol
 
-When a completed task concludes a phase and `architect/workflow.md` defines a Phase Completion Verification and Checkpointing Protocol:
+When a phase protocol meta-task is selected, or when a completed non-meta task concludes a phase that has no phase protocol meta-task, and `architect/workflow.md` defines a Phase Completion Verification and Checkpointing Protocol:
 
-1. Execute that protocol immediately.
-2. Present manual verification steps to the user through the active agent runtime's user-interaction mechanism.
-3. Wait for explicit user confirmation before proceeding.
-4. Create checkpoint commits only when commits are explicitly authorized for the current implementation workflow.
+1. Announce that the named phase is complete and phase verification has begun.
+2. Identify changed code files for the phase, verify that corresponding tests exist, and create missing tests using the repository's existing testing style.
+3. Announce and run the automated test or coverage command required by `architect/workflow.md`. If the command fails, debug according to the workflow and attempt at most two fix cycles before asking the user for guidance.
+4. Generate manual verification steps from `architect/product.md`, `architect/product-guidelines.md`, and the completed phase tasks in `plan.md`.
+5. Present the manual verification steps to the user through the active agent runtime's user-interaction mechanism.
+6. Wait for explicit user confirmation before proceeding to the next phase or final track completion.
+7. If commits are explicitly authorized for the current implementation workflow, stage phase-related changes and create a checkpoint commit using `architect(checkpoint): complete phase <phase_name>`.
+8. If commits are not explicitly authorized, do not create a checkpoint commit; continue only after reporting that the checkpoint commit was skipped because commits are not authorized.
+
+When the selected parent task is the generated `Task: Architect - User Manual Verification '<Phase Name>' (Protocol in workflow.md)` meta-task:
+
+1. Mark the meta-task `[~]` before running the protocol.
+2. Run the full phase completion protocol above for `<Phase Name>`.
+3. After user confirmation, mark the meta-task `[x]` and append the normal task completion marker: the checkpoint commit hash when one exists, otherwise `no-commit`.
+4. Do not start the next phase while this meta-task is `[ ]` or `[~]`.
 
 ## 8. Finalize Track
 

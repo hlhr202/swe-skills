@@ -17,23 +17,27 @@ flowchart TD
     TaskLoop --> NoWork{Any unfinished task remains?}
     NoWork -->|No| Finalize[Mark track completed and update metadata]
     NoWork -->|Yes| MarkTask[Mark task or sub-task in progress]
-    MarkTask --> Execute[Implement smallest correct change using project conventions]
+    MarkTask --> MetaTask{Is this the phase protocol meta-task?}
+    MetaTask -->|Yes| PhaseProtocol[Run phase verification and checkpoint protocol]
+    MetaTask -->|No| Execute[Implement smallest correct change using project conventions]
     Execute --> Verify[Run workflow-required tests, coverage, docs, and checks]
     Verify -->|Failures beyond allowed attempts| AskGuidance[Ask user for guidance]
     AskGuidance --> Execute
     Verify -->|Pass| CompleteTask[Mark task complete and record summary or commit hash]
     CompleteTask --> PhaseDone{Did this complete a phase?}
     PhaseDone -->|No| TaskLoop
-    PhaseDone -->|Yes| WorkflowPhaseProtocol{Workflow defines phase completion protocol?}
+    PhaseDone -->|Yes| WorkflowPhaseProtocol{Workflow defines phase completion protocol and no meta-task exists?}
     WorkflowPhaseProtocol -->|No| TaskLoop
-    WorkflowPhaseProtocol -->|Yes| PhaseProtocol[Run phase verification and checkpoint protocol]
+    WorkflowPhaseProtocol -->|Yes| PhaseProtocol
     PhaseProtocol --> ManualSteps[Present manual verification steps]
     ManualSteps --> ManualConfirm{User confirms manual verification?}
-    ManualConfirm -->|No| AskGuidance
+    ManualConfirm -->|No| PhaseGuidance[Ask user for guidance and apply required fixes]
+    PhaseGuidance --> PhaseProtocol
     ManualConfirm -->|Yes| CheckpointAsk{Commits authorized for this workflow?}
     CheckpointAsk -->|Yes| CheckpointCommit[Create architect checkpoint commit]
-    CheckpointAsk -->|No| TaskLoop
-    CheckpointCommit --> TaskLoop
+    CheckpointAsk -->|No| MarkMetaDone[Mark protocol meta-task done or record skipped checkpoint]
+    CheckpointCommit --> MarkMetaDone
+    MarkMetaDone --> TaskLoop
     Finalize --> CompletionCommit{Commits authorized?}
     CompletionCommit -->|Yes| CommitComplete[Commit track completion update]
     CompletionCommit -->|No| ReportArchitectChanges[Report changed Architect files]
