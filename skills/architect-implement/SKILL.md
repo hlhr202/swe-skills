@@ -13,10 +13,10 @@ Use this skill to implement a track that already exists in an initialized Archit
 - Use Architect semantics consistently: `architect/`, `/architect-*`, `Architect methodology`, and `architect(...)` commit scopes.
 - Require an initialized Architect context and a valid track before implementation.
 - Use relative paths rooted in the user's project when editing Architect files. Architect-managed files must stay under `architect/`; do not use absolute paths, `..`, or track links outside `architect/tracks/`.
-- Ask the user through the active agent runtime's user-interaction mechanism for decisions and workflow confirmations. If structured choices are unavailable, present the options in text and wait for the user's reply.
+- Ask the user through the active agent runtime's user-interaction mechanism for decisions and workflow confirmations. If structured choices are unavailable, present the options in text and wait for the user's reply. Manual Mode preserves all human confirmations; Auto Mode bypasses phase-level human confirmations after the user selects it.
 - Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits. Do not use shell redirection to write files.
 - Validate each operation result before continuing. If a step fails, correct it once when the error is clear; otherwise stop and report the blocker.
-- Do not commit unless the user explicitly asks for a commit in the current conversation or has explicitly authorized commits for the current implementation workflow.
+- Do not commit unless the user explicitly asks for a commit in the current conversation, has explicitly authorized commits for the current implementation workflow, or selected Auto Mode for phase checkpoint commits.
 - Do not archive or delete track folders unless the user explicitly confirms that cleanup action.
 
 ## Execution
@@ -25,7 +25,8 @@ Use this skill to implement a track that already exists in an initialized Archit
 2. Verify required Architect context files exist.
 3. Parse `architect/tracks.md` and select the target track.
 4. Load the track's `spec.md`, `plan.md`, `metadata.json`, and `architect/workflow.md`.
-5. Execute plan tasks according to the workflow.
-6. Update task, track, registry, and metadata status.
-7. Synchronize project documentation when the track is complete.
-8. Offer review/archive/delete/skip cleanup choices safely.
+5. Ask whether to run Manual Mode or Auto Mode.
+6. Execute plan tasks according to the workflow.
+7. Update task, track, registry, and metadata status.
+8. Synchronize project documentation when the track is complete.
+9. Offer review/archive/delete/skip cleanup choices safely.

@@ -12,7 +12,9 @@ flowchart TD
     AskTrack --> Resolve
     Resolve --> TrackFiles[Read spec.md, plan.md, metadata.json, workflow, product, guidelines, and tech stack]
     TrackFiles -->|Missing track file| HaltIncomplete[Halt and suggest setup recovery or track inspection]
-    TrackFiles -->|Ready| MarkTrack[Mark track and metadata in progress]
+    TrackFiles -->|Ready| ModeAsk[Ask implementation mode]
+    ModeAsk -->|Manual| MarkTrack[Mark track and metadata in progress]
+    ModeAsk -->|Auto| MarkTrack
     MarkTrack --> TaskLoop[Select next in-progress or pending plan task]
     TaskLoop --> NoWork{Any unfinished task remains?}
     NoWork -->|No| Finalize[Mark track completed and update metadata]
@@ -29,14 +31,19 @@ flowchart TD
     PhaseDone -->|Yes| WorkflowPhaseProtocol{Workflow defines phase completion protocol and no meta-task exists?}
     WorkflowPhaseProtocol -->|No| TaskLoop
     WorkflowPhaseProtocol -->|Yes| PhaseProtocol
-    PhaseProtocol --> ManualSteps[Present manual verification steps]
+    PhaseProtocol --> ModeCheck{Implementation mode?}
+    ModeCheck -->|Manual| ManualSteps[Present manual verification steps]
     ManualSteps --> ManualConfirm{User confirms manual verification?}
     ManualConfirm -->|No| PhaseGuidance[Ask user for guidance and apply required fixes]
     PhaseGuidance --> PhaseProtocol
     ManualConfirm -->|Yes| CheckpointAsk{Commits authorized for this workflow?}
     CheckpointAsk -->|Yes| CheckpointCommit[Create architect checkpoint commit]
     CheckpointAsk -->|No| MarkMetaDone[Mark protocol meta-task done or record skipped checkpoint]
-    CheckpointCommit --> MarkMetaDone
+    ModeCheck -->|Auto| AutoVerify[Agent executes or substitutes manual verification]
+    AutoVerify -->|Failures beyond allowed attempts| AskGuidance
+    AutoVerify -->|Pass| CheckpointCommit
+    CheckpointCommit --> RecordCheckpointHash[Record checkpoint hash in plan.md after commit]
+    RecordCheckpointHash --> MarkMetaDone
     MarkMetaDone --> TaskLoop
     Finalize --> CompletionCommit{Commits authorized?}
     CompletionCommit -->|Yes| CommitComplete[Commit track completion update]
@@ -45,11 +52,13 @@ flowchart TD
     ReportArchitectChanges --> DocsSync
     DocsSync --> DocUpdateNeeded{Product, tech stack, or guidelines update needed?}
     DocUpdateNeeded -->|No| DocsReport[Report documentation sync result]
-    DocUpdateNeeded -->|Yes| DocApproval[Ask user to approve proposed documentation diff]
+    DocUpdateNeeded -->|Yes| DocMode{Implementation mode and document type?}
+    DocMode -->|Manual or sensitive guidelines| DocApproval[Ask user to approve proposed documentation diff]
+    DocMode -->|Auto routine product or tech stack docs| UpdateDocs[Apply documentation update]
     DocApproval -->|Reject| DocsReport
-    DocApproval -->|Approve| UpdateDocs[Apply approved documentation update]
+    DocApproval -->|Approve| UpdateDocs
     UpdateDocs --> MoreDocs{More documentation updates needed?}
-    MoreDocs -->|Yes| DocApproval
+    MoreDocs -->|Yes| DocMode
     MoreDocs -->|No| DocsCommit{Documentation changed and commits authorized?}
     DocsCommit -->|Yes| CommitDocs[Commit documentation sync]
     DocsCommit -->|No| DocsReport
@@ -67,6 +76,6 @@ flowchart TD
     Archive --> Summary
     Delete --> Summary
 
-    class AskTrack,AskGuidance,ManualSteps,ManualConfirm,CheckpointAsk,CompletionCommit,DocApproval,DocsCommit,CleanupChoice,ArchiveConfirm,DeleteConfirm human;
+    class AskTrack,ModeAsk,AskGuidance,ManualSteps,ManualConfirm,CheckpointAsk,CompletionCommit,DocApproval,DocsCommit,CleanupChoice,ArchiveConfirm,DeleteConfirm human;
     classDef human fill:#fff3cd,stroke:#f0ad4e,stroke-width:2px,color:#111;
 ```
