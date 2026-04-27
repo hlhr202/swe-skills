@@ -2,6 +2,12 @@
 
 SWE Skills is a collection of agent-usable software engineering workflows. The first skill set in this repository is the Architect workflow, a structured planning and execution system for managing software projects through durable project context and track-based implementation.
 
+## Installation
+
+```sh
+npx skills add https://github.com/hlhr202/swe-skills
+```
+
 ## Architect Skills
 
 Architect stores project context in `architect/` and organizes implementation work as tracks under `architect/tracks/`. The workflow is designed to be runtime-neutral so it can be used across different coding agents, not only one specific agent runtime.
