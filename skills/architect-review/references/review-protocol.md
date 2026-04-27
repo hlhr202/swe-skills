@@ -154,16 +154,29 @@ For track review:
 
 1. Parse `plan.md` for recorded commit hashes. Accept full or short SHAs appended to completed tasks.
 2. If commits exist, set the revision range from the parent of the first relevant commit to the last relevant commit when possible.
-3. If no commits are recorded, ask the user how to proceed. Do not silently substitute unrelated current changes for a track review.
+3. If no usable commits are recorded, or recorded commits cannot be resolved, automatically attempt once to infer the track's commit range from Git history before asking the user. Do not silently substitute unrelated current changes for a track review.
+4. For automatic inference, inspect candidate commits using available Git history signals:
+   - Commits that touched `architect/tracks/<track_id>/`.
+   - Commits whose subject or body mentions `<track_id>`.
+   - Architect-scoped commits likely associated with the track, such as `architect(implement)`, `architect(checkpoint)`, `architect(plan)`, or `architect(docs)`.
+   - `metadata.json` timestamps, when present, to narrow the candidate window.
+   - Exclude commits that clearly belong to other tracks or unrelated work.
+5. Treat automatic inference as successful only when it yields one coherent candidate range. If successful, ask the user to confirm the inferred range before reviewing it:
+   - Title: `Confirm Inferred Range`
+   - Prompt: `I inferred review range '<revision_range>' for track '<track_id>'. Is this the range to review?`
+   - Selection: single
+   - Choices: `Yes`, `No`.
+6. If the user confirms the inferred range, use it and note in the final review report that the range was inferred because `plan.md` did not record usable commit hashes.
+7. If automatic inference fails, is ambiguous, or the user rejects the inferred range, ask the user how to proceed:
    - Title: `No Commits`
-   - Prompt: `No commit range was recorded for this track. How should I determine the review diff?`
+   - Prompt: `No usable commit range was recorded or confirmed for this track. How should I determine the review diff?`
    - Selection: single
    - Choices:
      - `Provide revision range`: User supplies a range such as `main...HEAD`.
      - `Review current changes`: Review staged and unstaged changes for this track.
      - `Cancel`: Stop review until a range is available.
-4. If the user explicitly chooses to review current changes for the track, review staged and unstaged changes and ask before including untracked files.
-5. If neither commits, current changes, nor a revision range are available, report that there is no diff to review and ask the user for a revision range.
+8. If the user explicitly chooses to review current changes for the track, review staged and unstaged changes and ask before including untracked files.
+9. If neither commits, current changes, nor a revision range are available, report that there is no diff to review and ask the user for a revision range.
 
 For `current` review:
 

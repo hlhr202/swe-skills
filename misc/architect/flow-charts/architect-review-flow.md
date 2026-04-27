@@ -17,7 +17,11 @@ flowchart TD
     ConfirmScope -->|Not confirmed| AskScope
     ConfirmScope -->|Confirmed| Context[Read project context, style guides, and track context when applicable]
     Context --> Diff[Determine diff scope from track commits, current changes, or revision range]
-    Diff -->|No track commits| AskDiff[Ask user how to determine review diff]
+    Diff -->|No recorded track commits| InferRange[Infer commit range from Git history]
+    InferRange -->|Unique range found| ConfirmInferredRange[Ask user to confirm inferred range]
+    ConfirmInferredRange -->|Yes| Volume
+    ConfirmInferredRange -->|No| AskDiff[Ask user how to determine review diff]
+    InferRange -->|Failed or ambiguous| AskDiff
     AskDiff --> Diff
     Diff --> Volume{Diff over 300 changed lines?}
     Volume -->|Yes| LargeReview[Ask user before iterative review mode]
@@ -59,6 +63,6 @@ flowchart TD
     Archive --> Summary
     Delete --> Summary
 
-    class AskScope,ConfirmScope,AskDiff,LargeReview,NextAction,CommitAsk,TrackRecordAsk,TrackCommit,CleanupChoice,ArchiveConfirm,DeleteConfirm human;
+    class AskScope,ConfirmScope,ConfirmInferredRange,AskDiff,LargeReview,NextAction,CommitAsk,TrackRecordAsk,TrackCommit,CleanupChoice,ArchiveConfirm,DeleteConfirm human;
     classDef human fill:#fff3cd,stroke:#f0ad4e,stroke-width:2px,color:#111;
 ```
