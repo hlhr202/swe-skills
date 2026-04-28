@@ -33,7 +33,7 @@ flowchart TD
     CreateFiles --> Registry[Append track entry to tracks.md]
     Registry --> CommitAsk{Did user explicitly request a commit?}
     CommitAsk -->|Yes| Commit[Commit new track files]
-    CommitAsk -->|No| Summary[Summarize created files and next steps]
+    CommitAsk -->|No| Summary[Summarize created files, state no commit was made without explicit authorization, and offer optional commit]
     Commit --> Summary
 
     class AskDescription,AskSpecifics,SpecQuestions,ConfirmSpec,PlanQuestions,ConfirmPlan,CommitAsk human;

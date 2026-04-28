@@ -278,4 +278,4 @@ If the user explicitly requested a commit, commit Architect files with:
 architect(propose): add track <track_id>
 ```
 
-Otherwise, do not commit.
+Otherwise, do not commit. In the completion summary, explicitly state that the track files were created but not committed because commit authorization was not given in the current conversation. Offer that the user can request a commit with `architect(propose): add track <track_id>` if they want the planning artifacts recorded in Git.
