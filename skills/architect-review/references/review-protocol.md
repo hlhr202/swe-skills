@@ -12,7 +12,23 @@ Validate every operation result. If an operation fails because of a recoverable 
 
 Use relative project paths such as `architect/tracks.md` and `architect/tracks/<track_id>/plan.md`. Architect-managed files must stay under `architect/`; never create or follow absolute paths, parent-directory paths (`..`), or track links outside `architect/tracks/`. Do not write files with shell redirection. Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits.
 
-Do not commit unless the user explicitly asks for a commit in the current conversation or has explicitly authorized commits for the current review workflow.
+Do not create any Git commit unless the user explicitly authorizes committing in the current conversation.
+
+The following count as commit authorization:
+
+- The user directly says to commit, create a commit, or make the commit.
+- The user answers `Yes` to a protocol prompt that explicitly asks whether to commit.
+
+The following do not count as commit authorization by themselves:
+
+- Asking to review.
+- Asking to apply fixes.
+- Asking to complete the track.
+- Saying `go ahead`, `proceed`, or similar, unless the prompt explicitly asked about committing.
+
+Commit authorization is scoped only to the commit type named in the prompt. Review-fix commit authorization does not automatically authorize track plan commits, cleanup commits, archive commits, delete commits, or unrelated commits.
+
+The user may authorize commits for the current review workflow only by saying something equivalent to: `Commit all review workflow changes for this review.` This authorizes only review-fix and review-plan commits created by this review workflow, not cleanup, archive, delete, or unrelated commits.
 
 Do not run destructive cleanup such as deleting a track folder unless the user explicitly confirms that exact action.
 
@@ -380,9 +396,15 @@ If the user chooses `Archive`:
    - Choices: `Yes`, `No`.
 6. If the user does not confirm, leave the track unchanged.
 7. Create `architect/archive/` if needed.
-8. Move `architect/tracks/<track_id>/` to `architect/archive/<track_id>/`.
-9. Remove the track section from `architect/tracks.md`.
-10. Announce the archived path.
+8. Move the entire directory `architect/tracks/<track_id>/` to `architect/archive/<track_id>/`; do not move only its contents.
+9. Verify that `architect/archive/<track_id>/` exists and `architect/tracks/<track_id>/` no longer exists.
+10. If `architect/tracks/<track_id>/` still exists after the move, inspect it before taking further action:
+
+- If the remaining source directory is empty, remove that empty directory and verify it no longer exists.
+- If the remaining source directory contains any files or subdirectories, stop and report the unexpected remaining contents instead of deleting them.
+
+11. Remove the track section from `architect/tracks.md`.
+12. Announce the archived path.
 
 If commits are authorized, commit with:
 

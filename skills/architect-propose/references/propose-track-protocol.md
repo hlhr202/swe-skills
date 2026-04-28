@@ -39,7 +39,7 @@ Do not proceed to track creation when setup is incomplete.
 
 If recoverable management artifacts are missing but required setup files exist, recreate them during Section 7.1.
 
-Before proposing a new track, inspect `architect/tracks/` when it exists. If any incomplete `architect/tracks/<track_id>/` folder exists, halt and tell the user to resume or clean up that incomplete track before creating a new one. Suggest running `/architect-setup` to resume setup recovery if the incomplete track came from interrupted setup. A track folder is incomplete when it is missing any of `spec.md`, `plan.md`, `metadata.json`, or `index.md`.
+Do not inspect or evaluate unrelated existing track folders for status or completeness before proposing a new track. Existing tracks, including incomplete or completed-but-unarchived tracks, must not block creation of a new independent track. Only the collision check in Section 7.2 may halt creation based on existing tracks.
 
 ## 3. Load Project Context
 

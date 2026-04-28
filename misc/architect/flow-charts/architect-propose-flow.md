@@ -7,10 +7,8 @@ flowchart TD
     SetupCheck -->|Missing required file| NotSetup[Halt and ask user to run architect-setup]
     SetupCheck -->|Required files exist| MgmtCheck{tracks.md or tracks/ missing?}
     MgmtCheck -->|Yes| RecoverMgmt[Recover management artifacts]
-    MgmtCheck -->|No| IncompleteCheck[Inspect tracks/ for incomplete track folders]
-    RecoverMgmt --> IncompleteCheck
-    IncompleteCheck -->|Incomplete track found| HaltIncomplete[Halt and suggest setup recovery or cleanup]
-    IncompleteCheck -->|No incomplete tracks| LoadContext[Read product, guidelines, tech stack, workflow, and tracks registry]
+    MgmtCheck -->|No| LoadContext[Read product, guidelines, tech stack, workflow, and tracks registry]
+    RecoverMgmt --> LoadContext
     LoadContext --> Description{Track description supplied?}
     Description -->|No| AskDescription[Ask for track description]
     Description -->|Yes| InferType[Infer track type]

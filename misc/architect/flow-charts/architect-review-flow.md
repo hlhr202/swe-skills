@@ -44,7 +44,7 @@ flowchart TD
     CommitAsk -->|No| CleanupEligible
     TrackRecordAsk -->|No| CleanupEligible
     TrackRecordAsk -->|Yes| TrackPlan[Append or reuse Review Fixes task in plan.md]
-    TrackPlan --> TrackCommit{Commits authorized?}
+    TrackPlan --> TrackCommit{Review workflow commits explicitly authorized?}
     TrackCommit -->|Yes| CommitTrackFixes[Commit fixes and plan update]
     TrackCommit -->|No| MarkReviewTask[Mark Review Fixes task complete with no-commit]
     CommitFixes --> CleanupEligible
@@ -56,7 +56,7 @@ flowchart TD
     CleanupChoice -->|Archive| ArchiveConfirm[Ask for archive confirmation with warnings]
     CleanupChoice -->|Delete| DeleteConfirm[Ask for delete confirmation with warnings]
     CleanupChoice -->|Skip| Summary
-    ArchiveConfirm -->|Yes| Archive[Archive track safely]
+    ArchiveConfirm -->|Yes| Archive[Move entire track directory and verify source removal]
     ArchiveConfirm -->|No| Summary
     DeleteConfirm -->|Yes| Delete[Delete track safely]
     DeleteConfirm -->|No| Summary
