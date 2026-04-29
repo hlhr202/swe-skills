@@ -386,8 +386,8 @@ Ask:
 If the user chooses `Archive`:
 
 1. Warn that this will move the track folder, including `spec.md`, `plan.md`, `metadata.json`, `index.md`, and any user notes or extra files inside it.
-2. Check whether the track folder contains unexpected files beyond `spec.md`, `plan.md`, `metadata.json`, and `index.md`; include them in the confirmation prompt if present.
-3. If Git is available, check whether the track folder has uncommitted changes; include that warning in the confirmation prompt if present.
+2. Check whether the track folder contains unexpected files beyond `spec.md`, `plan.md`, `metadata.json`, and `index.md`; present those details in a normal assistant message before confirmation if present.
+3. If Git is available, check whether the track folder has uncommitted changes; present that warning in a normal assistant message before confirmation if present.
 4. If `architect/archive/<track_id>/` already exists, halt and ask the user whether to choose a different archive name, delete the existing archive manually, or skip cleanup.
 5. Ask for confirmation:
    - Title: `Confirm Archive`
@@ -418,7 +418,7 @@ Otherwise, do not commit.
 
 If the user chooses `Delete`, ask for final confirmation with a warning.
 
-Before asking, check whether the track folder contains unexpected files or uncommitted changes when Git is available, and include those details in the warning.
+Before asking, check whether the track folder contains unexpected files or uncommitted changes when Git is available, and present those details in the warning message before the concise confirmation prompt.
 
 - Title: `Confirm`
 - Prompt: `WARNING: This permanently deletes architect/tracks/<track_id>/, including spec.md, plan.md, metadata.json, index.md, and any user notes or extra files. This cannot be undone. Type or choose Yes only if you are sure.`

@@ -15,7 +15,9 @@ Architect is a structured workflow for turning product context into track-based 
 
 ```mermaid
 flowchart TD
-    Setup[architect-setup creates project context] --> Propose[architect-propose creates or updates a track]
+    Setup[architect-setup creates project context] --> Discuss[architect-discuss drafts product and architecture direction]
+    Discuss --> Propose[architect-propose creates or updates a track]
+    Setup --> Propose
     Propose --> Implement[architect-implement executes plan.md]
     Implement --> Verify[Phase verification and checkpoints]
     Verify --> Complete{Track complete?}
@@ -25,12 +27,14 @@ flowchart TD
     Review --> Status[architect-status reports current Architect state]
 
     Status --> Propose
+    Status --> Discuss
     Status --> Implement
 ```
 
 ## Command Roles
 
 - `/architect-setup`: Initializes or repairs the `architect/` project context. It creates the product, guidelines, tech stack, workflow, index, and initial track artifacts.
+- `/architect-discuss`: Clarifies early product or technical requirements and produces a product/architecture draft before formal track proposal work. It does not create tracked Architect artifacts.
 - `/architect-propose`: Defines a track from a requested feature, bug fix, or enhancement. It creates a specification and a phase-based implementation plan.
 - `/architect-implement`: Executes an approved track plan. It updates task status, runs verification, creates phase checkpoints when allowed, finalizes the track, and synchronizes project docs.
 - `/architect-review`: Reviews completed or in-progress work for bugs, risks, regressions, and missing tests.
@@ -42,6 +46,7 @@ A typical minimal flow looks like this:
 
 ```text
 /architect-setup
+/architect-discuss explore a reporting permissions model
 /architect-propose add a password reset flow
 /architect-implement 20260427_add_password_reset
 /architect-review 20260427_add_password_reset
@@ -55,6 +60,9 @@ For a small existing project, a simple interaction might be:
 ```text
 User: /architect-setup
 Agent: Creates architect/product.md, workflow.md, tracks.md, and an initial track.
+
+User: /architect-discuss explore CSV export permissions and rollout
+Agent: Clarifies goals, users, constraints, architecture options, and readiness for a formal proposal.
 
 User: /architect-propose add CSV export to the reports page
 Agent: Creates a track spec and phase-based plan.
@@ -80,6 +88,7 @@ Auto Mode still stops for unrecoverable failures, failed verification after allo
 Detailed Mermaid diagrams live in `flow-charts/`:
 
 - [Setup Flow](./flow-charts/architect-setup-flow.md)
+- [Discuss Flow](./flow-charts/architect-discuss-flow.md)
 - [Propose Flow](./flow-charts/architect-propose-flow.md)
 - [Implement Flow](./flow-charts/architect-implement-flow.md)
 - [Review Flow](./flow-charts/architect-review-flow.md)

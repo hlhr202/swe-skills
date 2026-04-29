@@ -123,9 +123,10 @@ For bug tracks, include these sections instead when more appropriate:
 ## Risks and Assumptions
 ```
 
-Ask for approval with the full draft embedded in the question:
+Present the full `spec.md` draft in a normal assistant message first. Then ask for approval with a concise interactive prompt:
 
 - Title: `Confirm Spec`
+- Prompt: `Is this specification ready to use for planning?`
 - Selection: single
 - Choices:
   - `Approve`: The specification is correct; proceed to planning.
@@ -159,9 +160,10 @@ Recommended structure:
 - [ ] Task: Architect - User Manual Verification '<Phase Name>' (Protocol in workflow.md)
 ```
 
-Ask for approval with the full draft embedded in the question:
+Present the full `plan.md` draft in a normal assistant message first. Then ask for approval with a concise interactive prompt:
 
 - Title: `Confirm Plan`
+- Prompt: `Is this implementation plan ready to create track artifacts?`
 - Selection: single
 - Choices:
   - `Approve`: The plan is correct; create the track artifacts.

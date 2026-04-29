@@ -129,7 +129,7 @@ Create or complete `architect/product.md`.
      - `Autogenerate`: Draft from the initial project goal and brownfield analysis when available.
 3. If Interactive, ask up to four batched questions. Use choices with useful suggested answers. Ask about target users, primary goals, key features, and constraints. In Brownfield projects, do not ask for information already present in the codebase.
 4. Draft a polished product guide. Use only the user's selected answers plus already-audited project facts as source material.
-5. Ask for approval with the full draft embedded in the question:
+5. Present the full draft in a normal assistant message, then ask for approval with a concise interactive prompt:
    - Choices: `Approve`, `Suggest changes`.
 6. If the user suggests changes, revise and repeat approval.
 7. Once approved, write the result to `architect/product.md`. If `# Initial Concept` exists, keep it at the top and append the approved Product Guide below it rather than replacing the initial concept.
@@ -157,7 +157,7 @@ Create `architect/product-guidelines.md`.
    - `Autogenerate`: Draft standard guidelines from the product guide.
 3. If Interactive, ask up to four batched questions with high-quality suggestions. For Brownfield projects, align suggestions with existing documentation and UI style.
 4. Draft the guidelines.
-5. Ask for approval with the full draft embedded.
+5. Present the full draft in a normal assistant message, then ask for approval with a concise interactive prompt.
 6. Revise until approved.
 7. Write `architect/product-guidelines.md`.
 
@@ -197,7 +197,7 @@ Document the existing stack, do not propose changes.
 
 ### 7.3 Draft and Write
 
-Draft `architect/tech-stack.md`, ask for approval with the full content embedded, revise if needed, then write the file.
+Draft `architect/tech-stack.md`, present the full content in a normal assistant message, ask for approval with a concise interactive prompt, revise if needed, then write the file.
 
 Suggested structure:
 

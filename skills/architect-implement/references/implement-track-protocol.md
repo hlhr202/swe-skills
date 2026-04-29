@@ -259,10 +259,10 @@ Analyze the completed track specification for product behavior changes, technolo
 
 Update `architect/product.md` only when the completed track significantly changes the product's user-facing behavior, goals, or capabilities.
 
-If an update is needed in Manual Mode, ask for approval with the proposed diff embedded in the question. If an update is needed in Auto Mode, prepare the diff and apply routine product definition updates without approval:
+If an update is needed in Manual Mode, present the proposed diff in a normal assistant message, then ask for approval with a concise interactive prompt. If an update is needed in Auto Mode, prepare the diff and apply routine product definition updates without approval:
 
 - Title: `Product`
-- Prompt: `Please review the proposed updates to Product Definition below. Do you approve?` Include the diff directly in the prompt body.
+- Prompt: `Approve the proposed Product Definition updates?`
 - Selection: single
 - Choices: `Approve`, `Reject`.
 
@@ -272,10 +272,10 @@ In Manual Mode, only edit the file after explicit approval. In Auto Mode, apply 
 
 Update `architect/tech-stack.md` only when the completed track introduced or removed significant technology, framework, infrastructure, persistence, testing, or deployment decisions.
 
-If an update is needed in Manual Mode, ask for approval with the proposed diff embedded in the question. If an update is needed in Auto Mode, prepare the diff and apply routine documentation updates only when they describe implementation decisions already made within the selected track:
+If an update is needed in Manual Mode, present the proposed diff in a normal assistant message, then ask for approval with a concise interactive prompt. If an update is needed in Auto Mode, prepare the diff and apply routine documentation updates only when they describe implementation decisions already made within the selected track:
 
 - Title: `Tech Stack`
-- Prompt: `Please review the proposed updates to Tech Stack below. Do you approve?` Include the diff directly in the prompt body.
+- Prompt: `Approve the proposed Tech Stack updates?`
 - Selection: single
 - Choices: `Approve`, `Reject`.
 
@@ -287,10 +287,10 @@ Treat `architect/product-guidelines.md` as sensitive. Routine features and bug f
 
 Propose changes only when the track specification explicitly changes branding, voice, tone, accessibility principles, UX principles, or core product identity.
 
-If an update is needed, ask for approval with a clear warning and the proposed diff embedded in the question:
+If an update is needed, present a clear warning and the proposed diff in a normal assistant message, then ask for approval with a concise interactive prompt:
 
 - Title: `Guidelines`
-- Prompt: `WARNING: This affects core product guidelines. Please review the proposed changes below. Do you approve?` Include the diff directly in the prompt body.
+- Prompt: `Approve these Product Guidelines changes?`
 - Selection: single
 - Choices: `Approve`, `Reject`.
 
@@ -340,8 +340,8 @@ Do not archive or delete the track during this run after the user chooses `Revie
 If the user chooses `Archive`:
 
 1. Warn that this will move the track folder, including `spec.md`, `plan.md`, `metadata.json`, `index.md`, and any user notes or extra files inside it.
-2. Check whether the track folder contains unexpected files beyond `spec.md`, `plan.md`, `metadata.json`, and `index.md`; include them in the confirmation prompt if present.
-3. If Git is available, check whether the track folder has uncommitted changes; include that warning in the confirmation prompt if present.
+2. Check whether the track folder contains unexpected files beyond `spec.md`, `plan.md`, `metadata.json`, and `index.md`; present those details in a normal assistant message before confirmation if present.
+3. If Git is available, check whether the track folder has uncommitted changes; present that warning in a normal assistant message before confirmation if present.
 4. If `architect/archive/<track_id>/` already exists, halt and ask the user whether to choose a different archive name, delete the existing archive manually, or skip cleanup.
 5. Ask for confirmation before moving files:
    - Title: `Confirm Archive`
@@ -366,7 +366,7 @@ Otherwise, do not commit.
 
 If the user chooses `Delete`, ask for final confirmation with a warning:
 
-Before asking, check whether the track folder contains unexpected files or uncommitted changes when Git is available, and include those details in the warning.
+Before asking, check whether the track folder contains unexpected files or uncommitted changes when Git is available, and present those details in the warning message before the concise confirmation prompt.
 
 - Title: `Confirm`
 - Prompt: `WARNING: This permanently deletes architect/tracks/<track_id>/, including spec.md, plan.md, metadata.json, index.md, and any user notes or extra files. This cannot be undone. Type or choose Yes only if you are sure.`

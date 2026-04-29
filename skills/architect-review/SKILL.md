@@ -14,6 +14,7 @@ Use this skill to review Architect track implementation or current repository ch
 - Require initialized Architect context before track-based review.
 - Use relative paths rooted in the user's project when editing Architect files. Architect-managed files must stay under `architect/`; do not use absolute paths, `..`, or track links outside `architect/tracks/`.
 - Ask the user through the active agent runtime's user-interaction mechanism for decisions and review confirmations. If structured choices are unavailable, present the options in text and wait for the user's reply.
+- Present detailed Markdown, findings, diffs, reports, or risk analysis in a normal assistant message before asking for a decision. Use interactive prompts only for concise plain-text questions and short plain-text choices.
 - Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits. Do not use shell redirection to write files.
 - Validate each operation result before continuing. If a step fails, correct it once when the error is clear; otherwise stop and report the blocker.
 - Do not commit unless the user explicitly asks for a commit in the current conversation or has explicitly authorized commits for the current review workflow.
