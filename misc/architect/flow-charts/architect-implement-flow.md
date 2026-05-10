@@ -4,7 +4,8 @@
 flowchart TD
     Start([User requests implementation or resume]) --> Load[Read implement-track-protocol.md]
     Load --> SetupCheck[Verify required Architect context and tracks directory]
-    SetupCheck -->|Missing required context| NotSetup[Halt and suggest setup or propose]
+    SetupCheck -->|Missing core context| NotSetup[Halt and suggest architect-setup]
+    SetupCheck -->|Missing track registry| NoTracks[Halt and suggest architect-propose]
     SetupCheck -->|Ready| Parse[Parse tracks.md]
     Parse --> Select{Can target track be selected uniquely?}
     Select -->|No| AskTrack[Ask user to choose a track]

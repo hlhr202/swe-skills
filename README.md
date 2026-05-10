@@ -14,12 +14,12 @@ Architect stores project context in `architect/` and organizes implementation wo
 
 | Skill | Capability | When to Use |
 | --- | --- | --- |
-| `architect-setup` | Initializes or resumes the Architect project context, including product definition, product guidelines, tech stack, workflow, style guides, project index, and the first track. | Use when starting Architect in a project or recovering an interrupted setup. |
+| `architect-setup` | Initializes or resumes the core Architect project context, including product definition, product guidelines, tech stack, workflow, style guides, and project index. It does not create tracks. | Use when starting Architect in a project or recovering an interrupted setup before discussion or proposal work. |
 | `architect-discuss` | Clarifies raw or ambiguous requirements and drafts product/architecture direction before tracked proposal work. | Use only when explicitly invoking `architect-discuss` for exploration, option comparison, or proposal readiness discussion. |
 | `architect-propose` | Creates a new track with a confirmed specification, implementation plan, metadata, track index, and registry entry. | Use when planning a new feature, bug fix, chore, refactor, docs update, or test track. |
 | `architect-implement` | Executes an existing track plan, updates task status, syncs track metadata, and keeps project context aligned with completed work. | Use when implementing, continuing, resuming, or completing a planned track. |
 | `architect-review` | Reviews track work or explicit current changes against project context, track intent, style guides, correctness, safety, and tests. | Use when verifying implementation quality, applying review fixes, or checking cleanup readiness. |
-| `architect-status` | Reports read-only project progress from the track registry and plans, including current work, next action, blockers, and completion percentage. | Use when checking project status or deciding what to work on next. |
+| `architect-status` | Reports read-only project status from core context and, when available, the track registry and plans. | Use when checking setup status, project progress, or deciding what to work on next. |
 
 ## Acknowledgements
 

@@ -8,7 +8,9 @@ You are setting up and managing a software project using the Architect methodolo
 
 Validate every operation result. If an operation fails because of a recoverable path or command issue, self-correct once. If it remains unrecoverable, stop, report the failure, and wait for the user.
 
-Use relative project paths such as `architect/product.md` for generated project files. Architect-managed files must stay under `architect/`; never create or follow absolute paths, parent-directory paths (`..`), or track links outside `architect/tracks/`. Do not write files with shell redirection. Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for file creation and edits.
+Use relative project paths such as `architect/product.md` for generated project files. Architect-managed files must stay under `architect/`; never create or follow absolute paths or parent-directory paths (`..`). Do not write files with shell redirection. Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for file creation and edits.
+
+Setup creates only the core project context. Do not create, repair, delete, or modify proposal or track artifacts during setup.
 
 Do not commit changes unless the user explicitly requests a commit in the current conversation.
 
@@ -20,7 +22,7 @@ Present this overview to the user before setup begins:
 > 1. **Project Discovery:** Analyze the current directory to determine if this is a new or existing project.
 > 2. **Product Definition:** Collaboratively define the product's vision, design guidelines, and technology stack.
 > 3. **Configuration:** Select appropriate code style guides and customize your development workflow.
-> 4. **Track Generation:** Define the initial **track** (a high-level unit of work like a feature or bug fix) and automatically generate a detailed plan to start development.
+> 4. **Discussion Handoff:** Finish with a ready project context and recommend `architect-discuss` to explore the first product or architecture direction before any tracked proposal work.
 >
 > Let's get started.
 
@@ -34,10 +36,6 @@ Before setup, inspect existing artifacts under `architect/`:
 - `code_styleguides/`
 - `workflow.md`
 - `index.md`
-- `tracks/*/spec.md`
-- `tracks/*/plan.md`
-- `tracks/*/metadata.json`
-- `tracks/*/index.md`
 
 Determine the resume target by checking setup prerequisites in order. Do not jump to a later section just because a later artifact exists; if files were manually created out of order or setup was interrupted, resume at the earliest missing prerequisite.
 
@@ -50,9 +48,7 @@ Determine the resume target by checking setup prerequisites in order. Do not jum
 | `architect/code_styleguides/` is missing or empty | Section 8 | "Resuming setup: Tech stack is defined. Next: select code style guides." |
 | `architect/workflow.md` is missing or incomplete | Section 9 | "Resuming setup: Guides and tech stack are configured. Next: define project workflow." |
 | `architect/index.md` is missing or incomplete | Section 10 | "Resuming setup: Workflow is defined. Next: generate project index." |
-| Any incomplete `architect/tracks/<track_id>/` exists | Section 11.1 | "Resuming setup: I found an incomplete track folder. I will inspect it and ask before changing it." |
-| No complete track exists in `architect/tracks/` | Section 11.2 | "Resuming setup: Scaffolding is complete. Next: generate the first track." |
-| `architect/index.md`, `architect/tracks.md`, and at least one complete `tracks/<track_id>/` containing `spec.md`, `plan.md`, `metadata.json`, and `index.md` exist after all prerequisites above are satisfied | Halt | "The project is already initialized. Use `/architect-propose` or `/architect-implement`." |
+| Core context is complete after all prerequisites above are satisfied | Halt | "The project is already initialized. Use `/architect-discuss` to explore the next direction, or `/architect-propose` when a track scope is already confirmed." |
 
 Treat a Markdown artifact as incomplete when it is empty or only contains an obvious placeholder from an interrupted write. Treat `architect/code_styleguides/` as complete only when it contains at least one direct child `.md` guide.
 
@@ -265,10 +261,6 @@ Create `architect/index.md`:
 ## Workflow
 - [Workflow](./workflow.md)
 - [Code Style Guides](./code_styleguides/)
-
-## Management
-- [Tracks Registry](./tracks.md)
-- [Tracks Directory](./tracks/)
 ```
 
 Then summarize:
@@ -278,129 +270,11 @@ Then summarize:
 - Workflow mode selected.
 - Whether the setup was Greenfield or Brownfield.
 
-Announce that setup is ready to generate the first track.
+## 11. Completion and Handoff
 
-## 11. Initial Plan and Track Generation
+Announce that Architect setup is complete and the project context is ready for discussion.
 
-Interactively define the first track and create track artifacts.
-
-### 11.1 Cleanup Incomplete Track State
-
-If `architect/tracks/` exists but contains incomplete setup-generated track folders, ask the user before deleting or replacing them. A track folder is incomplete when it is missing any of `spec.md`, `plan.md`, `metadata.json`, or `index.md`. If an incomplete folder contains unexpected files, assume it may include user work and ask before changing it. Do not delete user-created work silently.
-
-### 11.2 Propose One Initial Track
-
-1. Explain that a track is a high-level unit of work such as a feature, bug fix, or setup milestone.
-2. Generate one concise track title:
-   - Greenfield: focus on the MVP core.
-   - Brownfield: focus on maintenance or a targeted enhancement.
-3. Ask for confirmation:
-   - Choices: `Yes`, `Suggest changes`.
-4. If the user suggests changes, ask for the desired track description.
-
-### 11.3 Create Track Artifacts
-
-Create `architect/tracks.md` with the first track:
-
-```markdown
-# Project Tracks
-
-This file tracks all major tracks for the project. Each track has its own detailed plan in its respective folder.
-
----
-
-- [ ] **Track: <Track Description>**
-  *Link: [./tracks/<track_id>/](./tracks/<track_id>/)*
-```
-
-Generate one track ID from the description with format `YYYYMMDD_shortname`, and use the exact same ID everywhere. Build `shortname` by lowercasing the description, keeping ASCII letters and numbers, replacing spaces with underscores, stripping punctuation, and using at most four meaningful words. The final `track_id` must match `^[0-9]{8}_[a-z0-9_]+$`.
-
-Before creating any track artifacts, run a collision check against both `architect/tracks/` and `architect/tracks.md` when they exist:
-
-- Existing track directories must not contain the same track ID.
-- Existing track directories must not contain the same short name after the date prefix.
-- The tracks registry must not already mention the same track ID or short name.
-
-If any collision exists, halt and explain that a matching track already exists. Suggest resuming the existing track, cleaning up the interrupted setup state, or choosing a different initial track description.
-
-Create `architect/tracks/<track_id>/` containing:
-
-- `metadata.json`
-- `spec.md`
-- `plan.md`
-- `index.md`
-
-`metadata.json` structure:
-
-```json
-{
-  "track_id": "<track_id>",
-  "type": "feature",
-  "status": "new",
-  "created_at": "YYYY-MM-DDTHH:MM:SSZ",
-  "updated_at": "YYYY-MM-DDTHH:MM:SSZ",
-  "description": "<Track Description>"
-}
-```
-
-Use `type: "feature"` by default, or `type: "bug"` when the approved track is clearly a bug fix.
-
-`index.md` structure:
-
-```markdown
-# Track <track_id> Context
-
-- [Specification](./spec.md)
-- [Implementation Plan](./plan.md)
-- [Metadata](./metadata.json)
-```
-
-### 11.4 Generate `spec.md`
-
-The spec should include:
-
-- Track summary.
-- User or system goals.
-- Functional requirements.
-- Non-functional requirements.
-- Acceptance criteria.
-- Out of scope.
-- Risks and assumptions.
-
-### 11.5 Generate `plan.md`
-
-The plan must follow `architect/workflow.md`.
-
-Rules:
-
-- Include status markers `[ ]` for every parent task and sub-task.
-- Parent task format: `- [ ] Task: ...`
-- Sub-task format: `    - [ ] ...`
-- If `architect/workflow.md` defines a Phase Completion Verification and Checkpointing Protocol, append a final meta-task to every phase:
-  - `- [ ] Task: Architect - User Manual Verification '<Phase Name>' (Protocol in workflow.md)`
-- If the workflow uses TDD, split implementation work into test-writing and implementation subtasks.
-
-Recommended structure:
-
-```markdown
-# Implementation Plan: <Track Description>
-
-## Phase 1: Foundation
-- [ ] Task: ...
-    - [ ] Write tests for ...
-    - [ ] Implement ...
-- [ ] Task: Architect - User Manual Verification 'Foundation' (Protocol in workflow.md)
-
-## Phase 2: Core Behavior
-- [ ] Task: ...
-    - [ ] Write tests for ...
-    - [ ] Implement ...
-- [ ] Task: Architect - User Manual Verification 'Core Behavior' (Protocol in workflow.md)
-```
-
-### 11.6 Completion
-
-Announce that Architect setup and initial track generation are complete.
+Recommend `/architect-discuss` as the next step. Explain that `architect-discuss` clarifies the first product or architecture direction without writing tracked proposal artifacts. When the scope is confirmed, the user can run `/architect-propose` to create the tracked proposal artifacts.
 
 If the user explicitly requested a commit, commit all Architect files with:
 
@@ -408,4 +282,4 @@ If the user explicitly requested a commit, commit all Architect files with:
 architect(setup): add architect setup files
 ```
 
-Otherwise, tell the user the files are ready and that they can begin with `/architect-implement`.
+Otherwise, tell the user the setup files are ready and that the recommended next step is `/architect-discuss`.

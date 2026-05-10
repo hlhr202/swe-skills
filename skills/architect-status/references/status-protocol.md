@@ -1,6 +1,6 @@
 # Architect Status Protocol
 
-This protocol provides a read-only status overview of an Architect project by parsing `architect/tracks.md` and each registered track's `plan.md`.
+This protocol provides a read-only status overview of an Architect project. It can report a freshly initialized project before any tracks exist, and it parses `architect/tracks.md` plus each registered track's `plan.md` when track management artifacts exist.
 
 ## 1. System Directive
 
@@ -12,22 +12,22 @@ Use relative project paths such as `architect/tracks.md` and `architect/tracks/<
 
 ## 2. Setup Check
 
-Verify that Architect is initialized before reporting project status.
+Verify that Architect core context is initialized before reporting project status.
 
-Required setup files. If any of these are missing, status cannot run:
+Required core setup files. If any of these are missing, status cannot run:
 
-- `architect/tracks.md`
 - `architect/product.md`
+- `architect/product-guidelines.md`
 - `architect/tech-stack.md`
 - `architect/workflow.md`
-
-Expected setup context. Missing expected context should be reported in Notes and may contribute to `Needs Attention`, but it should not halt status reporting:
-
 - `architect/index.md`
 
-Optional enrichment context. Missing enrichment context should not affect project status unless another Architect file references it as required:
+Optional proposal context. Missing proposal artifacts do not mean the core Architect context is incomplete:
 
-- `architect/product-guidelines.md`
+- `architect/tracks.md`
+- `architect/tracks/`
+
+If exactly one of `architect/tracks.md` or `architect/tracks/` exists, report `Needs Attention` because track management state is partial. Do not create or repair files.
 
 If any required setup file is missing, halt and tell the user:
 
@@ -36,6 +36,18 @@ Architect is not set up. Please run `/architect-setup` to set up the environment
 ```
 
 ## 3. Read Tracks Registry
+
+If both `architect/tracks.md` and `architect/tracks/` are missing, report:
+
+```text
+Architect is set up, but no tracks have been created yet. Recommended next action: run `/architect-discuss` to explore the next direction, then `/architect-propose` when the scope is confirmed.
+```
+
+Then stop. Do not treat this as an error or setup failure.
+
+If `architect/tracks.md` is missing but `architect/tracks/` exists, report `Needs Attention` with a note that the tracks directory exists without a registry. Recommend inspecting the directory or running `/architect-propose` only when it is safe to create or recover the registry. Then stop because no registry can be parsed.
+
+If `architect/tracks.md` exists but `architect/tracks/` is missing, parse the registry when possible, but report `Needs Attention` and note that registered track links cannot be resolved until the tracks directory is restored.
 
 Read `architect/tracks.md` and parse entries separated by `---`.
 

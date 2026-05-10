@@ -8,8 +8,8 @@ Architect is a structured workflow for turning product context into track-based 
 - `architect/product-guidelines.md`: UX, tone, accessibility, and product quality guidance.
 - `architect/tech-stack.md`: Approved technology choices and constraints.
 - `architect/workflow.md`: Task lifecycle, testing expectations, verification rules, and implementation modes.
-- `architect/tracks.md`: Registry of active and completed tracks.
-- `architect/tracks/<track_id>/`: One track's `spec.md`, `plan.md`, `metadata.json`, and `index.md`.
+- `architect/tracks.md`: Registry of active and completed tracks, created by `architect-propose` when the first confirmed track is proposed.
+- `architect/tracks/<track_id>/`: One track's `spec.md`, `plan.md`, `metadata.json`, and `index.md`, created by `architect-propose`.
 
 ## Workflow Summary
 
@@ -17,7 +17,6 @@ Architect is a structured workflow for turning product context into track-based 
 flowchart TD
     Setup[architect-setup creates project context] --> Discuss[architect-discuss drafts product and architecture direction]
     Discuss --> Propose[architect-propose creates or updates a track]
-    Setup --> Propose
     Propose --> Implement[architect-implement executes plan.md]
     Implement --> Verify[Phase verification and checkpoints]
     Verify --> Complete{Track complete?}
@@ -33,9 +32,9 @@ flowchart TD
 
 ## Command Roles
 
-- `/architect-setup`: Initializes or repairs the `architect/` project context. It creates the product, guidelines, tech stack, workflow, index, and initial track artifacts.
+- `/architect-setup`: Initializes or repairs the core `architect/` project context. It creates the product, guidelines, tech stack, code style guides, workflow, and index, then recommends `architect-discuss`.
 - `/architect-discuss`: Clarifies early product or technical requirements and produces a product/architecture draft before formal track proposal work. It does not create tracked Architect artifacts.
-- `/architect-propose`: Defines a track from a requested feature, bug fix, or enhancement. It creates a specification and a phase-based implementation plan.
+- `/architect-propose`: Defines a track from a requested feature, bug fix, or enhancement. It creates the tracks registry when needed, then creates a specification and a phase-based implementation plan.
 - `/architect-implement`: Executes an approved track plan. It updates task status, runs verification, creates phase checkpoints when allowed, finalizes the track, and synchronizes project docs.
 - `/architect-review`: Reviews completed or in-progress work for bugs, risks, regressions, and missing tests.
 - `/architect-status`: Reports initialized context, track registry state, active work, and next recommended actions.
@@ -59,7 +58,7 @@ For a small existing project, a simple interaction might be:
 
 ```text
 User: /architect-setup
-Agent: Creates architect/product.md, workflow.md, tracks.md, and an initial track.
+Agent: Creates the core Architect context and recommends architect-discuss.
 
 User: /architect-discuss explore CSV export permissions and rollout
 Agent: Clarifies goals, users, constraints, architecture options, and readiness for a formal proposal.

@@ -8,7 +8,7 @@ flowchart TD
     Maturity --> Resume{Earliest missing or incomplete setup artifact?}
     Resume -->|No Architect artifacts| Overview[Present setup overview]
     Resume -->|Partial setup exists| ResumeNotice[Announce resume point]
-    Resume -->|Already initialized| Halt[Halt and suggest propose or implement]
+    Resume -->|Already initialized| Halt[Halt and suggest discuss, or propose if scope is already confirmed]
     Overview --> Inception{Greenfield or brownfield?}
     Inception -->|Brownfield| ScanPermission[Ask permission for a read-only project scan]
     ScanPermission -->|Denied| StopScan[Halt setup]
@@ -42,28 +42,16 @@ flowchart TD
     StyleAsk --> WriteStyle[Copy approved code style guides]
     WriteStyle --> WorkflowReady
     WorkflowReady -->|No| WorkflowAsk[Ask default or customized workflow]
-    WorkflowReady -->|Yes| TrackRecovery{Incomplete first track exists?}
+    WorkflowReady -->|Yes| Summary[Summarize core context and recommend architect-discuss]
     WorkflowAsk --> WorkflowConfirm{User confirms workflow choices?}
     WorkflowConfirm -->|Change| WorkflowAsk
     WorkflowConfirm -->|Confirmed| Scaffolding[Create workflow.md and index.md]
-    Scaffolding --> TrackRecovery
-    TrackRecovery -->|Yes| InspectTrack[Inspect incomplete track and ask before changing it]
-    TrackRecovery -->|No| TrackAsk[Ask for initial track description and details]
-    InspectTrack --> TrackDecision{Resume, repair, or choose different description?}
-    TrackDecision -->|Resume| ResumeTrack[Reuse existing track description and artifacts]
-    TrackDecision -->|Repair| RepairTrack[Complete or repair missing track artifacts]
-    TrackDecision -->|Different description| TrackAsk
-    ResumeTrack --> SpecPlan
-    RepairTrack --> SpecPlan
-    TrackAsk --> Collision[Generate track ID and check tracks/ plus tracks.md collisions]
-    Collision -->|Collision found| CollisionHalt[Halt and suggest resume, cleanup, or different description]
-    Collision -->|No collision| CreateTrack[Create tracks.md and first track artifacts]
-    CreateTrack --> SpecPlan[Generate spec.md and plan.md from workflow.md]
-    SpecPlan --> CommitAsk{Did user explicitly request a commit?}
+    Scaffolding --> Summary
+    Summary --> CommitAsk{Did user explicitly request a commit?}
     CommitAsk -->|Yes| Commit[Commit Architect setup files]
-    CommitAsk -->|No| Summary[Summarize created files and next steps]
-    Commit --> Summary
+    CommitAsk -->|No| End([Setup complete; next recommended step is architect-discuss])
+    Commit --> End
 
-    class ScanPermission,GitGoal,ProductMode,ProductApproval,GuidelinesMode,GuidelinesApproval,TechStackAsk,TechStackApproval,StyleAsk,WorkflowAsk,WorkflowConfirm,InspectTrack,TrackDecision,TrackAsk,CommitAsk human;
+    class ScanPermission,GitGoal,ProductMode,ProductApproval,GuidelinesMode,GuidelinesApproval,TechStackAsk,TechStackApproval,StyleAsk,WorkflowAsk,WorkflowConfirm,CommitAsk human;
     classDef human fill:#fff3cd,stroke:#f0ad4e,stroke-width:2px,color:#111;
 ```

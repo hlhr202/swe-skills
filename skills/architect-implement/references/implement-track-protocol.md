@@ -31,13 +31,15 @@ Required tracks directory:
 
 - `architect/tracks/`
 
-If any required setup file or tracks directory is missing, halt and tell the user:
+If any core setup file is missing, halt and tell the user to run `/architect-setup` first. If the core setup files exist but `architect/tracks.md` or `architect/tracks/` is missing, halt and tell the user to run `/architect-propose` first.
+
+Use this message when the missing state is ambiguous or includes both core context and track management files:
 
 ```text
-Architect is not set up or has no track registry. Please run `/architect-setup` or `/architect-propose` first.
+Architect has no implementable track. Run `/architect-setup` if core context is missing, or `/architect-propose` to create the first track after scope is confirmed.
 ```
 
-Do not proceed when setup or track registry state is incomplete.
+Do not proceed when required core context or track registry state is incomplete.
 
 ## 3. Track Selection
 
