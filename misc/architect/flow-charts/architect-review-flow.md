@@ -12,22 +12,23 @@ flowchart TD
     WarnLimited --> ScopeChoice
     Parse --> ScopeChoice{Review scope supplied or inferable?}
     ScopeChoice -->|No| AskScope[Ask user to choose current changes, track, or revision range]
-    ScopeChoice -->|Yes| ConfirmScope[Ask user to confirm final scope]
-    AskScope --> ConfirmScope
-    ConfirmScope -->|Not confirmed| AskScope
-    ConfirmScope -->|Confirmed| Context[Read project context, style guides, and track context when applicable]
+    ScopeChoice -->|Yes| ScopeConfidence{Exact or uniquely supported scope?}
+    ScopeConfidence -->|Yes| AdoptScope[Announce and adopt scope without confirmation]
+    ScopeConfidence -->|No| AskScope
+    AskScope --> Context[Read project context, style guides, and track context when applicable]
+    AdoptScope --> Context
     Context --> Diff[Determine diff scope from track commits, current changes, or revision range]
-    Diff -->|No recorded track commits| InferRange[Infer commit range from Git history]
-    InferRange -->|Unique range found| ConfirmInferredRange[Ask user to confirm inferred range]
-    ConfirmInferredRange -->|Yes| Volume
-    ConfirmInferredRange -->|No| AskDiff[Ask user how to determine review diff]
-    InferRange -->|Failed or ambiguous| AskDiff
+    Diff --> RangeConfidence{Range confidence?}
+    RangeConfidence -->|High| AdoptRange[Announce evidence and adopt range]
+    RangeConfidence -->|One plausible range with uncertainty| AskRangeOnce[Ask once about candidate and named uncertainty]
+    RangeConfidence -->|Failed or ambiguous| AskDiff[Ask user how to determine review diff]
+    AskRangeOnce -->|Yes| Volume
+    AskRangeOnce -->|No| AskDiff
     AskDiff --> Diff
-    Diff --> Volume{Diff over 300 changed lines?}
-    Volume -->|Yes| LargeReview[Ask user before iterative review mode]
+    AdoptRange --> Volume{Diff over 300 changed lines?}
+    Volume -->|Yes| LargeReview[Announce and use iterative review mode]
     Volume -->|No| Analyze[Analyze plan compliance, style, correctness, safety, tests, and docs]
-    LargeReview -->|No| Summary[Summarize review cancellation]
-    LargeReview -->|Yes| Analyze
+    LargeReview --> Analyze
     Analyze --> Report[Produce findings-first review report]
     Report --> Findings{Findings found?}
     Findings -->|No| CleanSummary[Report no findings and residual risks]
@@ -63,6 +64,6 @@ flowchart TD
     Archive --> Summary
     Delete --> Summary
 
-    class AskScope,ConfirmScope,ConfirmInferredRange,AskDiff,LargeReview,NextAction,CommitAsk,TrackRecordAsk,TrackCommit,CleanupChoice,ArchiveConfirm,DeleteConfirm human;
+    class AskScope,AskRangeOnce,AskDiff,NextAction,CommitAsk,TrackRecordAsk,TrackCommit,CleanupChoice,ArchiveConfirm,DeleteConfirm human;
     classDef human fill:#fff3cd,stroke:#f0ad4e,stroke-width:2px,color:#111;
 ```

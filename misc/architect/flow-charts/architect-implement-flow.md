@@ -13,7 +13,8 @@ flowchart TD
     AskTrack --> Resolve
     Resolve --> TrackFiles[Read spec.md, plan.md, metadata.json, workflow, product, guidelines, and tech stack]
     TrackFiles -->|Missing track file| HaltIncomplete[Halt and suggest setup recovery or track inspection]
-    TrackFiles -->|Ready| ModeAsk[Ask implementation mode]
+    TrackFiles -->|Ready| GitBaseline[Capture and classify existing worktree changes]
+    GitBaseline --> ModeAsk[Ask implementation mode]
     ModeAsk -->|Manual| MarkTrack[Mark track and metadata in progress]
     ModeAsk -->|Auto| MarkTrack
     MarkTrack --> TaskLoop[Select next in-progress or pending plan task]
@@ -46,11 +47,7 @@ flowchart TD
     CheckpointCommit --> RecordCheckpointHash[Record checkpoint hash in plan.md after commit]
     RecordCheckpointHash --> MarkMetaDone
     MarkMetaDone --> TaskLoop
-    Finalize --> CompletionCommit{Commits authorized?}
-    CompletionCommit -->|Yes| CommitComplete[Commit track completion update]
-    CompletionCommit -->|No| ReportArchitectChanges[Report changed Architect files]
-    CommitComplete --> DocsSync[Analyze completed track for documentation sync]
-    ReportArchitectChanges --> DocsSync
+    Finalize --> DocsSync[Analyze completed track for documentation sync]
     DocsSync --> DocUpdateNeeded{Product, tech stack, or guidelines update needed?}
     DocUpdateNeeded -->|No| DocsReport[Report documentation sync result]
     DocUpdateNeeded -->|Yes| DocMode{Implementation mode and document type?}
@@ -60,11 +57,17 @@ flowchart TD
     DocApproval -->|Approve| UpdateDocs
     UpdateDocs --> MoreDocs{More documentation updates needed?}
     MoreDocs -->|Yes| DocMode
-    MoreDocs -->|No| DocsCommit{Documentation changed and commits authorized?}
-    DocsCommit -->|Yes| CommitDocs[Commit documentation sync]
-    DocsCommit -->|No| DocsReport
-    CommitDocs --> DocsReport
-    DocsReport --> CleanupChoice[Ask user to review, archive, delete, or skip cleanup]
+    MoreDocs -->|No| DocsReport
+    DocsReport --> FinalOptOut{User explicitly opted out of commits?}
+    FinalOptOut -->|Yes| ReportUncommitted[Report completed track changes as uncommitted]
+    FinalOptOut -->|No| StageFinal[Stage only inspected track-owned files or hunks]
+    StageFinal --> SafeFinal{Staged diff isolated and valid?}
+    SafeFinal -->|No| FinalBlocker[Stop and report finalization blocker]
+    SafeFinal -->|Yes| CommitFinal[Create final track-scoped implementation commit]
+    CommitFinal --> VerifyFinal{Commit exists and no track changes remain?}
+    VerifyFinal -->|No| FinalBlocker
+    VerifyFinal -->|Yes| CleanupChoice[Ask user to review, archive, delete, or skip cleanup]
+    ReportUncommitted --> CleanupChoice
     CleanupChoice -->|Review| ReviewNotice[Tell user to run architect-review before cleanup]
     CleanupChoice -->|Skip| Summary[Summarize outcome]
     CleanupChoice -->|Archive| ArchiveConfirm[Ask for archive confirmation with warnings]
@@ -77,6 +80,6 @@ flowchart TD
     Archive --> Summary
     Delete --> Summary
 
-    class AskTrack,ModeAsk,AskGuidance,ManualSteps,ManualConfirm,CheckpointAsk,CompletionCommit,DocApproval,DocsCommit,CleanupChoice,ArchiveConfirm,DeleteConfirm human;
+    class AskTrack,ModeAsk,AskGuidance,ManualSteps,ManualConfirm,CheckpointAsk,DocApproval,CleanupChoice,ArchiveConfirm,DeleteConfirm human;
     classDef human fill:#fff3cd,stroke:#f0ad4e,stroke-width:2px,color:#111;
 ```

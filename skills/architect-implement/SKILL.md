@@ -17,7 +17,8 @@ Use this skill to implement a track that already exists in an initialized Archit
 - Present detailed Markdown, drafts, diffs, reports, verification summaries, or risk analysis in a normal assistant message before asking for a decision. Use interactive prompts only for concise plain-text questions and short plain-text choices.
 - Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits. Do not use shell redirection to write files.
 - Validate each operation result before continuing. If a step fails, correct it once when the error is clear; otherwise stop and report the blocker.
-- Do not commit unless the user explicitly asks for a commit in the current conversation, has explicitly authorized commits for the current implementation workflow, or selected Auto Mode for phase checkpoint commits.
+- Treat a request to implement a track as authorization for one final, track-scoped implementation commit after the track and routine documentation sync complete successfully, unless the user explicitly opts out of commits. Auto Mode additionally authorizes phase checkpoint commits; Manual Mode checkpoint commits still require separate authorization.
+- Before editing, capture the existing Git worktree state. Stage only inspected changes that belong to the selected track and this implementation workflow; never sweep in unrelated or ambiguous pre-existing changes. If the final commit cannot be isolated safely, stop and report the blocker instead of committing mixed work.
 - Do not archive or delete track folders unless the user explicitly confirms that cleanup action.
 
 ## Execution
@@ -26,8 +27,9 @@ Use this skill to implement a track that already exists in an initialized Archit
 2. Verify required Architect context files exist.
 3. Parse `architect/tracks.md` and select the target track.
 4. Load the track's `spec.md`, `plan.md`, `metadata.json`, and `architect/workflow.md`.
-5. Ask whether to run Manual Mode or Auto Mode.
+5. Capture the existing Git worktree state, then ask whether to run Manual Mode or Auto Mode.
 6. Execute plan tasks according to the workflow.
 7. Update task, track, registry, and metadata status.
 8. Synchronize project documentation when the track is complete.
-9. Offer review/archive/delete/skip cleanup choices safely.
+9. Create and verify the final track-scoped implementation commit unless the user opted out.
+10. Offer review/archive/delete/skip cleanup choices safely.

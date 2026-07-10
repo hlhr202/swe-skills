@@ -22,7 +22,8 @@ flowchart TD
     Verify --> Complete{Track complete?}
     Complete -->|No| Implement
     Complete -->|Yes| Sync[Sync product, tech stack, or guideline docs when needed]
-    Sync --> Review[architect-review checks implementation quality]
+    Sync --> FinalCommit[Create verified track-scoped final commit]
+    FinalCommit --> Review[architect-review checks implementation quality]
     Review --> Status[architect-status reports current Architect state]
 
     Status --> Propose
@@ -35,8 +36,8 @@ flowchart TD
 - `/architect-setup`: Initializes or repairs the core `architect/` project context. It creates the product, guidelines, tech stack, code style guides, workflow, and index, then recommends `architect-discuss`.
 - `/architect-discuss`: Clarifies early product or technical requirements and produces a product/architecture draft before formal track proposal work. It does not create tracked Architect artifacts.
 - `/architect-propose`: Defines a track from a requested feature, bug fix, or enhancement. It creates the tracks registry when needed, then creates a specification and a phase-based implementation plan.
-- `/architect-implement`: Executes an approved track plan. It updates task status, runs verification, creates phase checkpoints when allowed, finalizes the track, and synchronizes project docs.
-- `/architect-review`: Reviews completed or in-progress work for bugs, risks, regressions, and missing tests.
+- `/architect-implement`: Executes an approved track plan. It updates task status, runs verification, creates phase checkpoints when allowed, finalizes the track, synchronizes project docs, and closes a successful run with a scoped final commit unless the user opts out.
+- `/architect-review`: Reviews completed or in-progress work for bugs, risks, regressions, and missing tests. Exact tracks and high-confidence commit ranges are adopted automatically; the user is asked only when evidence is ambiguous.
 - `/architect-status`: Reports initialized context, track registry state, active work, and next recommended actions.
 
 ## Usage
@@ -77,8 +78,8 @@ Agent: Reviews the selected track's implementation for bugs, regressions, and mi
 
 `/architect-implement` selects the mode after loading track context and before marking the track in progress.
 
-- **Manual Mode:** Preserves human confirmation at phase boundaries. The agent presents manual verification steps and waits for explicit approval before continuing.
-- **Auto Mode:** Runs the full `plan.md` without phase-level human confirmation. The agent performs feasible verification itself, records limitations, creates phase checkpoint commits, and continues until the track is complete or a safety boundary is reached.
+- **Manual Mode:** Preserves human confirmation at phase boundaries. The agent presents manual verification steps and waits for explicit approval before continuing, then creates the final track-scoped commit after successful completion unless the user opts out.
+- **Auto Mode:** Runs the full `plan.md` without phase-level human confirmation. The agent performs feasible verification itself, records limitations, creates phase checkpoint commits, and continues through the final track-scoped commit unless a safety boundary is reached or the user opts out.
 
 Auto Mode still stops for unrecoverable failures, failed verification after allowed fix attempts, significant tech stack changes, destructive cleanup, or sensitive product guideline changes.
 

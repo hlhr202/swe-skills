@@ -10,7 +10,9 @@ Validate every operation result. If an operation fails because of a recoverable 
 
 Use relative project paths such as `architect/tracks.md` and `architect/tracks/<track_id>/plan.md`. Architect-managed files must stay under `architect/`; never create or follow absolute paths, parent-directory paths (`..`), or track links outside `architect/tracks/`. Do not write files with shell redirection. Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits.
 
-Do not commit unless the user explicitly asks for a commit in the current conversation, has explicitly authorized commits for the current implementation workflow, or selected Auto Mode for phase checkpoint commits.
+A request to implement a track authorizes one final, track-scoped implementation commit after implementation, track bookkeeping, final verification, and routine documentation synchronization complete successfully. Do not create that final commit when the user explicitly opts out of commits. Auto Mode additionally authorizes phase checkpoint commits. Manual Mode checkpoint commits and ordinary task commits still require separate explicit authorization.
+
+Before editing, capture the existing Git worktree state. Stage only inspected files or hunks that belong to the selected track and the current implementation workflow. Never use broad staging such as `git add .` or `git add -A`, and never include unrelated or ambiguous pre-existing changes. If track-related changes cannot be isolated safely, stop before committing and report the blocker.
 
 Do not run destructive cleanup such as deleting a track folder unless the user explicitly confirms that exact action.
 
@@ -144,7 +146,8 @@ Do not start implementation without a selected mode.
 Mode rules:
 
 - Manual Mode preserves all existing human-in-the-loop workflow steps.
-- Auto Mode authorizes phase checkpoint commits for the current implementation workflow. It does not authorize final track completion, documentation sync, cleanup, archive, delete, or unrelated commits unless separately authorized.
+- The implementation request authorizes one final track-scoped commit in both modes unless the user explicitly opts out. That final commit may include remaining implementation changes, track completion bookkeeping, the last checkpoint hash update, and routine documentation synchronization for the selected track.
+- Auto Mode additionally authorizes phase checkpoint commits for the current implementation workflow. It does not authorize ordinary task commits, cleanup, archive, delete, or unrelated commits unless separately authorized.
 - Auto Mode bypasses phase-level human confirmation only. It must still stop for unrecoverable blockers and the safety boundaries below.
 
 Auto Mode safety boundaries:
@@ -158,6 +161,10 @@ Auto Mode safety boundaries:
 ## 6. Mark Track In Progress
 
 Before implementation work starts:
+
+- If Git is available, capture `git status --short` as the implementation baseline. Classify existing changes as clearly related to the selected track, clearly unrelated, or ambiguous by inspecting them against `spec.md` and `plan.md`.
+- Preserve clearly unrelated changes without staging or modifying them. Include pre-existing track-related changes in the final commit only after inspecting and verifying them as part of this workflow.
+- If an existing change overlaps a file or hunk that implementation must edit and ownership cannot be determined safely, ask once for clarification before editing or committing that overlap.
 
 - Update the selected track entry in `architect/tracks.md` from `[ ]` to `[~]` unless already `[~]`.
 - Update `metadata.json` status to `in_progress` and refresh `updated_at`.
@@ -231,16 +238,7 @@ After all parent tasks and actionable sub-tasks in the selected track's `plan.md
 - Update the selected track entry in `architect/tracks.md` from `[~]` or `[ ]` to `[x]`.
 - Update `metadata.json` status to `completed` and refresh `updated_at`.
 - Summarize completed work and changed files.
-
-If commits are explicitly authorized, commit the track completion update with:
-
-```text
-architect(implement): complete track <track_id>
-```
-
-Otherwise, do not commit.
-
-If the track completion updates were not committed, report the changed Architect files, including `architect/tracks.md`, `architect/tracks/<track_id>/metadata.json`, and `architect/tracks/<track_id>/plan.md` when they changed.
+- Do not commit the completion bookkeeping yet. Keep it for the final implementation commit after documentation synchronization, so the final commit records the complete terminal state including the last checkpoint hash.
 
 ## 10. Synchronize Project Documentation
 
@@ -302,17 +300,32 @@ Only edit the file after explicit approval in both Manual Mode and Auto Mode.
 
 Report which files changed and which did not need updates.
 
-If documentation files changed and commits are explicitly authorized, commit them with:
+Keep routine documentation changes for the selected track in the final implementation commit. Do not create a separate documentation commit unless the user explicitly requested a separate commit structure.
+
+## 11. Final Implementation Commit
+
+Run this section only after implementation, final track bookkeeping, required verification, and documentation synchronization succeed.
+
+If the user did not explicitly opt out of commits:
+
+1. Re-read the captured worktree baseline and the current status.
+2. Build the final commit candidate from inspected changes owned by the selected track and this implementation workflow. This normally includes remaining implementation files, `architect/tracks.md`, `architect/tracks/<track_id>/plan.md`, `metadata.json`, and approved routine project documentation changes.
+3. Exclude unrelated baseline changes and any ambiguous file or hunk. Use explicit path or hunk staging; never use `git add .` or `git add -A`.
+4. Inspect the staged diff and staged file list, then run `git diff --cached --check`. If staged content is unrelated, incomplete, or ambiguous, unstage only the unsafe candidate content and correct the staging before continuing.
+5. Create the final commit with:
 
 ```text
-architect(docs): sync docs for track <track_id>
+architect(implement): complete track <track_id>
 ```
 
-Otherwise, do not commit.
+6. Verify the commit exists and inspect `git status --short`. If any selected-track change remains uncommitted, the workflow is not fully finalized: safely include it in a follow-up track-scoped commit or stop and report why it cannot be isolated. Unrelated baseline changes may remain and must be reported as preserved.
+7. Do not create an empty commit. If the completed terminal state is already contained in `HEAD`, verify that fact and report the existing commit instead.
 
-If documentation files changed but were not committed, report the changed files so the user can review or commit them manually.
+If the final commit fails, or safe staging is impossible, treat that as a finalization blocker. Do not describe the implementation workflow as fully successful until the scoped commit is verified.
 
-## 11. Track Cleanup
+If the user explicitly opted out of commits, respect that choice, list the remaining selected-track changes, and describe the outcome as completed without a final commit.
+
+## 12. Track Cleanup
 
 Run cleanup only after implementation and documentation synchronization are complete.
 
@@ -327,7 +340,7 @@ Ask the user what to do with the completed track:
   - `Delete`: Permanently delete the track folder and remove it from `architect/tracks.md`.
   - `Skip`: Leave the completed track in place.
 
-### 11.1 Review
+### 12.1 Review
 
 If the user chooses `Review`, tell them:
 
@@ -337,7 +350,7 @@ Please run `/architect-review` to verify changes. You can archive or delete the 
 
 Do not archive or delete the track during this run after the user chooses `Review`.
 
-### 11.2 Archive
+### 12.2 Archive
 
 If the user chooses `Archive`:
 
@@ -364,7 +377,7 @@ architect(cleanup): archive track <track_id>
 
 Otherwise, do not commit.
 
-### 11.3 Delete
+### 12.3 Delete
 
 If the user chooses `Delete`, ask for final confirmation with a warning:
 
@@ -391,6 +404,6 @@ Otherwise, do not commit.
 
 If the user does not confirm, leave the track unchanged.
 
-### 11.4 Skip
+### 12.4 Skip
 
 If the user chooses `Skip`, announce that the completed track will remain in `architect/tracks.md`.

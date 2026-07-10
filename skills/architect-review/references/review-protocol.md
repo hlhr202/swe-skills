@@ -34,7 +34,7 @@ Do not run destructive cleanup such as deleting a track folder unless the user e
 
 ## 2. Scope Preflight and Setup Check
 
-First perform prompt preflight: determine whether the user explicitly requested a non-track review, such as `current`, uncommitted changes, or an explicit revision range. Non-track reviews may proceed without full Architect context after warning the user. Final scope selection and confirmation still happens in Section 3.
+First perform prompt preflight: determine whether the user explicitly requested a non-track review, such as `current`, uncommitted changes, or an explicit revision range. Non-track reviews may proceed without full Architect context after warning the user. Section 3 automatically adopts exact or high-confidence scope and asks only when evidence is ambiguous.
 
 Verify that Architect is initialized before any track-based review.
 
@@ -91,23 +91,20 @@ If the user supplied scope in the prompt, use it as the candidate scope.
 When the candidate scope is a track name or ID:
 
 1. Match case-insensitively against track IDs first. If no track ID matches, match against descriptions.
-2. If exactly one match is found, ask for confirmation:
-   - Title: `Confirm Scope`
-   - Prompt: `I will review track '<track_description>'. Is this correct?`
-   - Selection: single
-   - Choices: `Yes`, `No`.
-3. If no unique match is found, ask the user to select from available tracks or provide an exact track ID.
-4. After selecting a track, verify the registry contains exactly one entry with the selected track ID. If selection was made by description and multiple entries share that description, halt and ask the user to select by track ID or fix `architect/tracks.md` before review.
+2. Treat an exact valid track ID match or exact normalized full-description match to one safe registry entry as high confidence. Adopt it without confirmation and announce the selected track.
+3. If a partial or fuzzy description yields one plausible match, ask once whether to use that track. The answer is the final scope decision; do not ask again.
+4. If no unique match is found, ask the user to select from available tracks or provide an exact track ID.
+5. After selecting a track, verify the registry contains exactly one entry with the selected track ID. If multiple entries share the ID or the selected description remains ambiguous, halt and ask the user to select by track ID or fix `architect/tracks.md` before review.
+
+When the user explicitly supplies `current`, adopt current staged and unstaged changes without confirmation.
+
+When the user explicitly supplies a revision range, validate that its endpoints resolve and that Git accepts the range. If valid, adopt it without repeating it back for confirmation. If invalid, ask once for a corrected range.
 
 When no scope is supplied:
 
 1. Look for exactly one `[~]` in-progress track.
-2. If found, ask for confirmation:
-   - Title: `Review Track`
-   - Prompt: `Do you want to review the in-progress track '<track_description>'?`
-   - Selection: single
-   - Choices: `Yes`, `No`.
-3. If none exists or the user says no, ask what to review:
+2. If found, adopt it as the high-confidence scope and announce the selected track without asking for confirmation.
+3. If none or more than one exists, ask what to review:
    - Title: `Select Scope`
    - Prompt: `What would you like to review?`
    - Selection: single
@@ -129,14 +126,7 @@ If the user chooses `Provide revision range`, ask for the revision range, such a
 - Selection: single
 - Choices: examples such as `main...HEAD`, `HEAD~1..HEAD`, plus custom text.
 
-Before continuing, confirm the final scope:
-
-- Title: `Confirm Scope`
-- Prompt: `I will review: '<identified_scope>'. Is this correct?`
-- Selection: single
-- Choices: `Yes`, `No`.
-
-Do not proceed until the scope is confirmed.
+A scope selected through one of these prompts is already confirmed. Do not ask a second final-scope question. Always announce the adopted scope before loading changes so the decision remains visible and auditable.
 
 ## 4. Retrieve Context
 
@@ -169,30 +159,32 @@ If any required track file is missing, halt and tell the user to run `/architect
 For track review:
 
 1. Parse `plan.md` for recorded commit hashes. Accept full or short SHAs appended to completed tasks.
-2. If commits exist, set the revision range from the parent of the first relevant commit to the last relevant commit when possible.
-3. If no usable commits are recorded, or recorded commits cannot be resolved, automatically attempt once to infer the track's commit range from Git history before asking the user. Do not silently substitute unrelated current changes for a track review.
-4. For automatic inference, inspect candidate commits using available Git history signals:
+2. Validate recorded commits before adopting a range. A track-derived range is high confidence only when:
+   - Every boundary and recorded SHA resolves to a commit.
+   - The first relevant commit is an ancestor of the last relevant commit, and the candidate range is non-empty.
+   - Boundary commits are anchored to the track by a recorded SHA, a change under `architect/tracks/<track_id>/`, or a commit subject/body mentioning `<track_id>`.
+   - Commits inside the range form one coherent implementation sequence: their messages, changed files, and plan tasks support the selected track, with no unexplained commit or conflicting evidence for another track.
+   - The aggregate diff footprint is consistent with `spec.md` and `plan.md`; unrelated pre-existing or later work is not silently included.
+3. When recorded commits satisfy all high-confidence checks, set the range from the parent of the first relevant commit to the last relevant commit, announce the adopted range and evidence, and proceed without asking the user to confirm it.
+4. If no usable commits are recorded, recorded commits cannot be resolved, or their range fails a confidence check, automatically attempt once to infer the track's commit range from Git history before asking the user. Do not silently substitute unrelated current changes for a track review.
+5. For automatic inference, inspect candidate commits using available Git history signals:
    - Commits that touched `architect/tracks/<track_id>/`.
    - Commits whose subject or body mentions `<track_id>`.
    - Architect-scoped commits likely associated with the track, such as `architect(implement)`, `architect(checkpoint)`, `architect(plan)`, or `architect(docs)`.
    - `metadata.json` timestamps, when present, to narrow the candidate window.
    - Exclude commits that clearly belong to other tracks or unrelated work.
-5. Treat automatic inference as successful only when it yields one coherent candidate range. If successful, ask the user to confirm the inferred range before reviewing it:
-   - Title: `Confirm Inferred Range`
-   - Prompt: `I inferred review range '<revision_range>' for track '<track_id>'. Is this the range to review?`
-   - Selection: single
-   - Choices: `Yes`, `No`.
-6. If the user confirms the inferred range, use it and note in the final review report that the range was inferred because `plan.md` did not record usable commit hashes.
-7. If automatic inference fails, is ambiguous, or the user rejects the inferred range, ask the user how to proceed:
+6. Apply the same high-confidence checks from step 2 to an inferred range. If exactly one range passes every check, announce that it was inferred, summarize the supporting evidence, adopt it without confirmation, and record its provenance in the final review report.
+7. If exactly one plausible range exists but one or more confidence checks cannot be proven, ask once whether to use it. Include the candidate range and the specific uncertainty in the prompt. The user's answer is final; do not reconfirm it.
+8. If automatic inference fails or yields multiple plausible ranges, ask the user how to proceed:
    - Title: `No Commits`
-   - Prompt: `No usable commit range was recorded or confirmed for this track. How should I determine the review diff?`
+   - Prompt: `I could not determine one high-confidence commit range for this track. How should I determine the review diff?`
    - Selection: single
    - Choices:
      - `Provide revision range`: User supplies a range such as `main...HEAD`.
      - `Review current changes`: Review staged and unstaged changes for this track.
      - `Cancel`: Stop review until a range is available.
-8. If the user explicitly chooses to review current changes for the track, review staged and unstaged changes and ask before including untracked files.
-9. If neither commits, current changes, nor a revision range are available, report that there is no diff to review and ask the user for a revision range.
+9. If the user explicitly chooses to review current changes for the track, review staged and unstaged changes and ask before including untracked files.
+10. If neither commits, current changes, nor a revision range are available, report that there is no diff to review and ask the user for a revision range.
 
 For `current` review:
 
@@ -201,7 +193,7 @@ For `current` review:
 
 For explicit revision range:
 
-- Use the provided range after confirming it with the user.
+- Validate and use the provided range without a redundant confirmation. Ask only when Git cannot resolve or interpret it.
 
 ## 5. Load and Analyze Changes
 
@@ -211,11 +203,7 @@ For Git-based diffs:
 
 - Use a shortstat summary first.
 - If the diff is under 300 changed lines, review the full diff.
-- If the diff is over 300 changed lines, ask before using iterative review mode:
-  - Title: `Large Review`
-  - Prompt: `This review involves more than 300 changed lines. I will review files iteratively. Proceed?`
-  - Selection: single
-  - Choices: `Yes`, `No`.
+- If the diff is over 300 changed lines, announce that iterative review mode will be used and proceed automatically. Iterative chunking is a read-only review strategy, not a scope change, so it does not require confirmation.
 
 In iterative review mode:
 
@@ -264,6 +252,7 @@ Use this structure:
 ```
 
 ## Verification Checks
+- [ ] **Review Scope**: <scope or range> - <explicit|recorded|inferred>, <high|user-confirmed> confidence; <brief evidence>
 - [ ] **Plan Compliance**: <Yes|No|Partial> - <comment>
 - [ ] **Style Compliance**: <Pass|Fail|Not checked> - <comment>
 - [ ] **New Tests**: <Yes|No|Not applicable>

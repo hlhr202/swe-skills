@@ -14,6 +14,7 @@ Use this skill to review Architect track implementation or current repository ch
 - Require initialized Architect context before track-based review.
 - Use relative paths rooted in the user's project when editing Architect files. Architect-managed files must stay under `architect/`; do not use absolute paths, `..`, or track links outside `architect/tracks/`.
 - Ask the user through the active agent runtime's user-interaction mechanism for decisions and review confirmations. If structured choices are unavailable, present the options in text and wait for the user's reply.
+- Do not ask the user to reconfirm an exact or uniquely identified track, a valid explicit revision range, or a high-confidence range derived from track evidence. Announce the adopted scope and its evidence, then proceed. Ask once only when scope or range evidence is ambiguous, conflicting, or unresolvable.
 - Present detailed Markdown, findings, diffs, reports, or risk analysis in a normal assistant message before asking for a decision. Use interactive prompts only for concise plain-text questions and short plain-text choices.
 - Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits. Do not use shell redirection to write files.
 - Validate each operation result before continuing. If a step fails, correct it once when the error is clear; otherwise stop and report the blocker.
@@ -24,8 +25,8 @@ Use this skill to review Architect track implementation or current repository ch
 
 1. Read the bundled resource `references/review-protocol.md`.
 2. Verify required Architect context when doing track-based review.
-3. Identify review scope: explicit user scope, in-progress track, selected track, or current changes.
-4. Load project context, style guides, track spec/plan, and relevant diffs.
+3. Identify review scope and automatically adopt it when exact or uniquely supported; ask only to resolve ambiguity.
+4. Load project context, style guides, track spec/plan, and determine the relevant diff using an evidence-based confidence check.
 5. Analyze plan compliance, style compliance, correctness, safety, and tests.
 6. Produce a findings-first review report.
 7. Ask how to proceed with findings.

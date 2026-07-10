@@ -17,8 +17,8 @@ All tasks follow a strict lifecycle.
 
 `/architect-implement` asks for an implementation mode after loading track context and before marking the track in progress.
 
-- **Manual Mode:** Preserve all human confirmation steps. Phase completion waits for user feedback before proceeding, and commits are created only when the user has explicitly authorized commits for the current implementation workflow.
-- **Auto Mode:** Run the full `plan.md` without phase-level human confirmation. The agent must perform phase verification itself using tests, coverage, browser automation, command-line checks, API checks, or code inspection where appropriate. Auto Mode authorizes phase checkpoint commits for the current implementation workflow, but does not authorize final track completion, documentation sync, cleanup, archive, delete, or unrelated commits.
+- **Manual Mode:** Preserve all human confirmation steps. Phase completion waits for user feedback before proceeding. Phase checkpoint and ordinary task commits require explicit authorization, but a successful implementation still ends with the final track-scoped commit authorized by the implementation request unless the user opts out.
+- **Auto Mode:** Run the full `plan.md` without phase-level human confirmation. The agent must perform phase verification itself using tests, coverage, browser automation, command-line checks, API checks, or code inspection where appropriate. Auto Mode authorizes phase checkpoint commits in addition to the final track-scoped commit. It does not authorize ordinary task commits, cleanup, archive, delete, or unrelated commits.
 
 Auto Mode still stops for unrecoverable blockers, failed verification after the allowed fix attempts, significant technology stack changes, destructive cleanup, or sensitive product guideline changes.
 
@@ -48,6 +48,18 @@ This protocol runs immediately after a task completes a phase in `plan.md`.
 6. **Auto Mode Verification:** In Auto Mode, do not wait for phase-level human feedback. Execute the generated verification steps directly when feasible. If a step cannot be executed directly, perform the closest safe automated substitute and record the limitation in the task summary.
 7. **Create Checkpoint Commit:** In Auto Mode, stage phase-related changes and create a phase checkpoint commit. In Manual Mode, create the checkpoint commit only when the user has explicitly authorized commits for the current implementation workflow. Use commit message format `architect(checkpoint): complete phase <phase_name>`.
 8. **Record Checkpoint Hash:** When a checkpoint commit is created, record its hash in `plan.md` only after the commit succeeds. The `plan.md` line that records the checkpoint hash cannot be included in the same checkpoint commit because the hash does not exist until after that commit is created; it remains a follow-up Architect status update for the next authorized commit or final track update.
+
+### Final Track Commit
+
+After all tasks, final verification, track bookkeeping, and routine documentation synchronization succeed, create one final track-scoped commit unless the user explicitly opted out of commits.
+
+1. Capture the worktree state before implementation and compare it with the final state.
+2. Stage only inspected files or hunks owned by the selected track and this workflow. Never use `git add .` or `git add -A`; preserve unrelated pre-existing changes.
+3. Inspect the staged diff and run `git diff --cached --check`.
+4. Commit with `architect(implement): complete track <track_id>`.
+5. Verify the commit and confirm that no selected-track changes remain uncommitted. Treat unsafe staging or commit failure as a finalization blocker rather than reporting full success.
+
+The implementation request authorizes this final commit in Manual and Auto modes. It does not authorize unrelated changes or cleanup commits. If the user opts out, report the selected-track changes that remain uncommitted.
 
 ## Manual Verification Examples
 
