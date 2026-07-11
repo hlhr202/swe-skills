@@ -1,44 +1,147 @@
 # Architect Review Protocol
 
-This protocol reviews an Architect track or current changes against project context, track intent, code style guides, tests, and implementation quality.
+## Purpose
 
-## 1. System Directive
+Review an Architect track or explicit current changes with a principal-engineer standard. Prioritize correctness, security, data integrity, maintainability, plan compliance, project standards, and tests over incidental style preferences.
 
-Act as a Principal Software Engineer and Code Review Architect.
+## Success Criteria
 
-Review from first principles. Prioritize correctness, security, maintainability, data integrity, test coverage, and plan compliance over minor style nits unless a style guide explicitly makes them required.
+A review succeeds when it:
 
-Validate every operation result. If an operation fails because of a recoverable path or command issue, self-correct once. If it remains unrecoverable, stop, report the failure, and wait for the user.
+- Uses an explicit, uniquely identified, or user-confirmed scope.
+- Records how the diff was derived and why its confidence is sufficient.
+- Checks project context, track intent, style rules, correctness, safety, maintainability, and tests.
+- Returns findings first, ordered by severity, with precise evidence and actionable guidance.
+- Reports verification performed, limitations, and residual risk.
+- Applies, records, commits, or cleans up only within the authorization granted by the user.
 
-Use relative project paths such as `architect/tracks.md` and `architect/tracks/<track_id>/plan.md`. Architect-managed files must stay under `architect/`; never create or follow absolute paths, parent-directory paths (`..`), or track links outside `architect/tracks/`. Do not write files with shell redirection. Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits.
+## Hard Boundaries
 
-Do not create any Git commit unless the user explicitly authorizes committing in the current conversation.
+- Track-based review requires initialized Architect context. Explicit current-change or revision-range review may proceed without it only after warning that plan, product, and style checks may be limited.
+- Keep Architect-managed reads and writes under `architect/`. Reject absolute paths, parent traversal (`..`), invalid track IDs, and links outside `architect/tracks/`.
+- Review scope does not authorize fixes. `Apply Fixes` authorizes only changes directly supported by reported findings.
+- Never broaden a review fix into unrelated refactoring or behavior changes without separate approval.
+- Never create a Git commit unless the user has explicitly authorized that commit type in the current conversation.
+- Never archive or delete a track without explicit confirmation of that exact cleanup action.
+- Use reviewable edits, preferably patch-based; do not use shell redirection for file writes.
+- Validate every operation. Retry once only for a clear recoverable issue; otherwise stop.
+
+## State Model
+
+```text
+requested
+  -> scope_adopted
+  -> context_loaded
+  -> diff_adopted
+  -> analyzed
+  -> reported
+  -> decision
+  -> fixes_applied?
+  -> fixes_recorded?
+  -> cleanup_or_stop
+```
+
+Scope confidence is either `high` or `user-confirmed`. Diff provenance is `explicit`, `recorded`, `inferred`, or `current`.
+
+Review findings do not change track status by themselves. Review-fix plan entries use `[~]` while work is active and `[x]` when recorded complete.
+
+## Decision Rules
+
+### Scope preflight
+
+Supported scopes are an exact track ID, track description, the sole in-progress track, `current`, or an explicit Git revision range.
+
+- Exact valid track ID or exact normalized full-description matching one safe registry entry: high confidence; adopt it without confirmation and announce it.
+- One plausible partial or fuzzy match: ask once. The answer is final.
+- No unique match or conflicting evidence: ask for an exact ID or selection.
+- Explicit `current`: adopt staged and unstaged changes without confirmation.
+- Valid explicit revision range: adopt without redundant confirmation; ask once only if Git cannot resolve it.
+- No supplied scope and exactly one `[~]` registry track: adopt it without confirmation.
+- No supplied scope with zero or multiple active tracks: ask the user to choose current changes, a track, or a revision range.
+
+Do not ask a second final-scope question after a scope is selected or confirmed. Always announce the adopted scope and evidence before loading changes.
+
+### Registry and path validation
+
+Parse registry sections separated by `---`, extracting marker, description, folder link, and track ID from entries such as:
+
+```markdown
+- [ ] **Track: <description>**
+  *Link: [./tracks/<track_id>/](./tracks/<track_id>/)*
+```
+
+Accept `[ ]`, `[~]`, or `[x]`. IDs must match `^[0-9]{8}_[a-z0-9_]+$`. Resolve only `./tracks/<track_id>/` or equivalent `architect/tracks/<track_id>/` links. Duplicate, ambiguous, malformed, or unsafe entries cannot be reviewed as a track.
+
+### Diff confidence
+
+For a track review, first parse full or short commit SHAs recorded in `plan.md`. A recorded or inferred range is high confidence only when:
+
+- Every boundary and recorded SHA resolves to a commit.
+- The first relevant commit is an ancestor of the last relevant commit.
+- The range is non-empty.
+- Boundaries are anchored by a recorded SHA, a change under the track directory, or a subject/body mentioning the track ID.
+- Commits form one coherent implementation sequence supported by messages, files, and plan tasks.
+- There is no unexplained commit or conflicting evidence for another track.
+- The aggregate diff footprint matches `spec.md` and `plan.md` without silently including unrelated work.
+
+Routing:
+
+- Recorded commits pass every check: use parent-of-first through last, announce evidence, proceed.
+- Recorded commits fail or are absent: infer once from commits touching the track directory, mentioning the track ID, using related scopes such as `architect(implement)`, `architect(checkpoint)`, `architect(plan)`, or `architect(docs)`, or falling inside metadata timestamps; exclude other-track work.
+- Exactly one inferred range passes every check: adopt and record provenance without confirmation.
+- Exactly one plausible range has a named uncertainty: ask once whether to use it.
+- Multiple or no plausible ranges: ask for an explicit range, current changes, or cancellation.
+- Never silently substitute unrelated current changes for a track review.
+
+### Current and untracked changes
+
+Review staged and unstaged changes for `current`. Include untracked files only when confirmed or when they are clearly source, config, test, or documentation files within the requested review.
+
+### Diff volume
+
+Run a shortstat first. Review a diff under 300 changed lines in full. For larger diffs, announce iterative review mode and proceed automatically; chunking is a read-only strategy, not a scope change. List files, skip irrelevant generated or binary artifacts, review source/config/test/doc chunks, and aggregate findings.
+
+### Tests
+
+Infer and announce the most relevant non-interactive test command. Run it automatically when feasible and use CI-safe flags such as `CI=true` when appropriate. Ask before commands that appear destructive, long-running, integration-dependent, or likely to require external services. If no reliable command exists, say why tests were not run.
+
+## Approval Boundaries
+
+### Commit authorization
 
 The following count as commit authorization:
 
-- The user directly says to commit, create a commit, or make the commit.
-- The user answers `Yes` to a protocol prompt that explicitly asks whether to commit.
+- A direct request to commit, create a commit, or make the commit.
+- `Yes` to a prompt that explicitly asks whether to commit.
+- An explicit statement equivalent to `Commit all review workflow changes for this review`, limited to review-fix and review-plan commits.
 
-The following do not count as commit authorization by themselves:
+The following do not count as commit authorization:
 
 - Asking to review.
 - Asking to apply fixes.
 - Asking to complete the track.
-- Saying `go ahead`, `proceed`, or similar, unless the prompt explicitly asked about committing.
+- `Go ahead`, `proceed`, or similar unless the active prompt explicitly asked about committing.
 
-Commit authorization is scoped only to the commit type named in the prompt. Review-fix commit authorization does not automatically authorize track plan commits, cleanup commits, archive commits, delete commits, or unrelated commits.
+Authorization is scoped to the named commit type. Review-fix authorization does not authorize plan, cleanup, archive, delete, or unrelated commits.
 
-The user may authorize commits for the current review workflow only by saying something equivalent to: `Commit all review workflow changes for this review.` This authorizes only review-fix and review-plan commits created by this review workflow, not cleanup, archive, delete, or unrelated commits.
+### Action matrix
 
-Do not run destructive cleanup such as deleting a track folder unless the user explicitly confirms that exact action.
+| Action | Required approval |
+| --- | --- |
+| Adopt exact/high-confidence scope | None; announce evidence |
+| Adopt one uncertain scope or range | One user confirmation |
+| Apply clear localized findings | `Apply Fixes` |
+| Apply broad or subjective Medium/Low change | Separate confirmation |
+| Commit non-track review fixes | Explicit `Yes` to commit prompt |
+| Record track fixes in plan | Explicit `Yes` to record prompt |
+| Commit track review fixes or plan update | Existing or newly explicit commit authorization |
+| Archive or permanently delete | Explicit confirmation of the exact action |
 
-## 2. Scope Preflight and Setup Check
+## Workflow
 
-First perform prompt preflight: determine whether the user explicitly requested a non-track review, such as `current`, uncommitted changes, or an explicit revision range. Non-track reviews may proceed without full Architect context after warning the user. Section 3 automatically adopts exact or high-confidence scope and asks only when evidence is ambiguous.
+### 1. Preflight and setup
 
-Verify that Architect is initialized before any track-based review.
-
-Required setup files:
+Determine whether the request is track-based or an explicit non-track review. Track review requires:
 
 - `architect/tracks.md`
 - `architect/product.md`
@@ -46,196 +149,49 @@ Required setup files:
 - `architect/workflow.md`
 - `architect/product-guidelines.md`
 
-Recommended optional context:
+`architect/index.md` and direct child Markdown files under `architect/code_styleguides/` are recommended context. For a missing track file, halt and report the incomplete track; setup cannot repair track artifacts.
 
-- `architect/index.md`
-- `architect/code_styleguides/`
+### 2. Select and announce scope
 
-If any required setup file is missing for a track review, list missing files, halt, and tell the user:
+Apply the scope rules above. When user input is needed, use concise choices:
 
-```text
-Architect is not set up. Please run `/architect-setup` to set up the environment.
-```
+- Title: `Select Scope`
+- Prompt: `What would you like to review?`
+- Choices: `Current changes`, `Choose a track`, `Provide revision range`
 
-If the user explicitly asks to review current uncommitted changes or an explicit revision range without Architect context, proceed as a non-track review after warning that Architect context is incomplete and plan/product/style checks may be limited.
+For `Choose a track`, ask with Title `Choose Track`, Prompt `Which track should I review?`, and choices listing available IDs and descriptions plus custom text. For `Provide revision range`, ask with Title `Revision Range`, Prompt `What revision range should I review?`, and examples such as `main...HEAD` and `HEAD~1..HEAD` plus custom text.
 
-## 3. Identify Review Scope
+A chosen scope is already confirmed. Do not ask again.
 
-The review scope can be:
+### 3. Load context and determine diff
 
-- A specific track ID.
-- A specific track description.
-- The in-progress track from `architect/tracks.md`.
-- `current`, meaning current uncommitted changes.
-- An explicit revision range supplied by the user.
+For track review, read project context plus the selected track's `spec.md`, `plan.md`, `metadata.json`, and `index.md` when present. Read only direct child style guides and do not follow external symlinks or references.
 
-### 3.1 Parse Tracks Registry
+Treat explicit correctness, security, and maintainability style rules as High unless the guide says otherwise. Formatting-only violations are Low or Medium unless declared strict.
 
-Read `architect/tracks.md` when it exists. Parse entries separated by `---`.
+Derive the diff using the confidence rules. If no high-confidence range exists, ask:
 
-For each section, extract:
+- Title: `No Commits`
+- Prompt: `I could not determine one high-confidence commit range for this track. How should I determine the review diff?`
+- Choices: `Provide revision range`, `Review current changes`, `Cancel`
 
-- Status marker: `[ ]`, `[~]`, or `[x]`.
-- Track description from `- [ ] **Track: <description>**`, `- [~] **Track: <description>**`, or `- [x] **Track: <description>**`.
-- Track folder link, normally `./tracks/<track_id>/`.
-- Track ID from the folder link.
+### 4. Analyze and verify
 
-Track IDs parsed from the registry must match `^[0-9]{8}_[a-z0-9_]+$`. Treat entries with invalid IDs as malformed and do not resolve their directories.
+Check:
 
-If the registry is required but has no valid track entries, halt and report that no track is available to review.
+- Plan and specification compliance.
+- Product and guideline fit.
+- Tech-stack and style compliance.
+- Correctness, edge cases, state transitions, races, nullability, error handling, and data loss.
+- Secrets, unsafe input, injection, PII, authentication, authorization, and insecure defaults.
+- Complexity, boundaries, duplication, and fragile abstractions.
+- Test coverage for new or changed behavior.
 
-### 3.2 Select Scope
+Run feasible tests according to the decision rules.
 
-If the user supplied scope in the prompt, use it as the candidate scope.
+### 5. Report findings first
 
-When the candidate scope is a track name or ID:
-
-1. Match case-insensitively against track IDs first. If no track ID matches, match against descriptions.
-2. Treat an exact valid track ID match or exact normalized full-description match to one safe registry entry as high confidence. Adopt it without confirmation and announce the selected track.
-3. If a partial or fuzzy description yields one plausible match, ask once whether to use that track. The answer is the final scope decision; do not ask again.
-4. If no unique match is found, ask the user to select from available tracks or provide an exact track ID.
-5. After selecting a track, verify the registry contains exactly one entry with the selected track ID. If multiple entries share the ID or the selected description remains ambiguous, halt and ask the user to select by track ID or fix `architect/tracks.md` before review.
-
-When the user explicitly supplies `current`, adopt current staged and unstaged changes without confirmation.
-
-When the user explicitly supplies a revision range, validate that its endpoints resolve and that Git accepts the range. If valid, adopt it without repeating it back for confirmation. If invalid, ask once for a corrected range.
-
-When no scope is supplied:
-
-1. Look for exactly one `[~]` in-progress track.
-2. If found, adopt it as the high-confidence scope and announce the selected track without asking for confirmation.
-3. If none or more than one exists, ask what to review:
-   - Title: `Select Scope`
-   - Prompt: `What would you like to review?`
-   - Selection: single
-   - Choices: `Current changes`, `Choose a track`, `Provide revision range`.
-
-If the user chooses `Current changes`, review uncommitted staged and unstaged changes.
-
-If the user chooses `Choose a track`, ask them to select or provide a track ID.
-
-- Title: `Choose Track`
-- Prompt: `Which track should I review?`
-- Selection: single
-- Choices: available tracks by track ID and description, plus custom text for an exact track ID.
-
-If the user chooses `Provide revision range`, ask for the revision range, such as `main...HEAD` or `<sha1>..<sha2>`.
-
-- Title: `Revision Range`
-- Prompt: `What revision range should I review?`
-- Selection: single
-- Choices: examples such as `main...HEAD`, `HEAD~1..HEAD`, plus custom text.
-
-A scope selected through one of these prompts is already confirmed. Do not ask a second final-scope question. Always announce the adopted scope before loading changes so the decision remains visible and auditable.
-
-## 4. Retrieve Context
-
-### 4.1 Project Context
-
-Read:
-
-- `architect/product-guidelines.md`
-- `architect/tech-stack.md`
-- `architect/product.md`
-- `architect/workflow.md`
-
-If `architect/code_styleguides/` exists, read direct child `.md` files in that directory only. Do not follow symlinks or references outside `architect/code_styleguides/`. Treat these style guides as mandatory. Violations of explicit correctness, security, or maintainability rules are High severity unless the rule itself states otherwise. Formatting-only violations are Low or Medium unless the style guide declares them strict.
-
-### 4.2 Track Context
-
-For track review, read:
-
-- `architect/tracks/<track_id>/spec.md`
-- `architect/tracks/<track_id>/plan.md`
-- `architect/tracks/<track_id>/metadata.json`
-- `architect/tracks/<track_id>/index.md` when present.
-
-Resolve the selected track directory from the registry link only when the parsed `track_id` matches `^[0-9]{8}_[a-z0-9_]+$` and the link is `./tracks/<track_id>/` or the equivalent `architect/tracks/<track_id>/`. If the link is absolute, contains `..`, has an invalid track ID, or points outside `architect/tracks/`, halt and ask the user to fix `architect/tracks.md` before continuing.
-
-If any required track file is missing, halt and tell the user to run `/architect-setup` recovery or inspect the incomplete track before continuing.
-
-### 4.3 Determine Diff Scope
-
-For track review:
-
-1. Parse `plan.md` for recorded commit hashes. Accept full or short SHAs appended to completed tasks.
-2. Validate recorded commits before adopting a range. A track-derived range is high confidence only when:
-   - Every boundary and recorded SHA resolves to a commit.
-   - The first relevant commit is an ancestor of the last relevant commit, and the candidate range is non-empty.
-   - Boundary commits are anchored to the track by a recorded SHA, a change under `architect/tracks/<track_id>/`, or a commit subject/body mentioning `<track_id>`.
-   - Commits inside the range form one coherent implementation sequence: their messages, changed files, and plan tasks support the selected track, with no unexplained commit or conflicting evidence for another track.
-   - The aggregate diff footprint is consistent with `spec.md` and `plan.md`; unrelated pre-existing or later work is not silently included.
-3. When recorded commits satisfy all high-confidence checks, set the range from the parent of the first relevant commit to the last relevant commit, announce the adopted range and evidence, and proceed without asking the user to confirm it.
-4. If no usable commits are recorded, recorded commits cannot be resolved, or their range fails a confidence check, automatically attempt once to infer the track's commit range from Git history before asking the user. Do not silently substitute unrelated current changes for a track review.
-5. For automatic inference, inspect candidate commits using available Git history signals:
-   - Commits that touched `architect/tracks/<track_id>/`.
-   - Commits whose subject or body mentions `<track_id>`.
-   - Architect-scoped commits likely associated with the track, such as `architect(implement)`, `architect(checkpoint)`, `architect(plan)`, or `architect(docs)`.
-   - `metadata.json` timestamps, when present, to narrow the candidate window.
-   - Exclude commits that clearly belong to other tracks or unrelated work.
-6. Apply the same high-confidence checks from step 2 to an inferred range. If exactly one range passes every check, announce that it was inferred, summarize the supporting evidence, adopt it without confirmation, and record its provenance in the final review report.
-7. If exactly one plausible range exists but one or more confidence checks cannot be proven, ask once whether to use it. Include the candidate range and the specific uncertainty in the prompt. The user's answer is final; do not reconfirm it.
-8. If automatic inference fails or yields multiple plausible ranges, ask the user how to proceed:
-   - Title: `No Commits`
-   - Prompt: `I could not determine one high-confidence commit range for this track. How should I determine the review diff?`
-   - Selection: single
-   - Choices:
-     - `Provide revision range`: User supplies a range such as `main...HEAD`.
-     - `Review current changes`: Review staged and unstaged changes for this track.
-     - `Cancel`: Stop review until a range is available.
-9. If the user explicitly chooses to review current changes for the track, review staged and unstaged changes and ask before including untracked files.
-10. If neither commits, current changes, nor a revision range are available, report that there is no diff to review and ask the user for a revision range.
-
-For `current` review:
-
-- Review both staged and unstaged changes.
-- Do not include untracked files unless the user confirms or the files are clearly source/config/test/docs related to the requested review.
-
-For explicit revision range:
-
-- Validate and use the provided range without a redundant confirmation. Ask only when Git cannot resolve or interpret it.
-
-## 5. Load and Analyze Changes
-
-Run a change volume check before reading full diffs.
-
-For Git-based diffs:
-
-- Use a shortstat summary first.
-- If the diff is under 300 changed lines, review the full diff.
-- If the diff is over 300 changed lines, announce that iterative review mode will be used and proceed automatically. Iterative chunking is a read-only review strategy, not a scope change, so it does not require confirmation.
-
-In iterative review mode:
-
-- List changed files.
-- Skip lockfiles, generated assets, build outputs, and binary files unless they are directly relevant.
-- Review each source/config/test/doc chunk individually.
-- Aggregate findings into one final report.
-
-## 6. Analyze and Verify
-
-Perform these checks against the diff and loaded context:
-
-- **Plan Compliance:** Does the implementation match `plan.md` and `spec.md`?
-- **Product Fit:** Does it align with `architect/product.md` and `architect/product-guidelines.md`?
-- **Tech Stack Compliance:** Does it follow `architect/tech-stack.md` and avoid undocumented stack changes?
-- **Style Compliance:** Does it follow `architect/code_styleguides/*.md` when present?
-- **Correctness:** Look for bugs, broken edge cases, invalid state transitions, race conditions, null/undefined risks, error handling gaps, and data loss risks.
-- **Security:** Look for hardcoded secrets, unsafe input handling, injection risks, PII leaks, authz/authn gaps, and insecure defaults.
-- **Maintainability:** Look for unnecessary complexity, poor boundaries, duplicated logic, and fragile abstractions.
-- **Testing:** Check whether new behavior has tests or is covered by existing tests.
-
-Run the test suite automatically when feasible. Infer the test command from the repository structure, announce the command before running it, and use non-interactive/CI-safe flags when appropriate, such as `CI=true`.
-
-If the inferred test command appears destructive, long-running, integration-dependent, or likely to require external services, ask for confirmation before running it.
-
-If no reliable test command can be inferred, state that tests were not run and explain why.
-
-## 7. Review Report Format
-
-Return findings first, ordered by severity. If no findings are discovered, state that explicitly and mention residual risks or testing gaps.
-
-Use this structure:
+Order findings Critical, High, Medium, Low. Use precise file and line evidence, explain impact, and provide a concrete suggestion or compact diff when useful.
 
 ```markdown
 # Review Report: <Track Name / Scope>
@@ -245,191 +201,100 @@ Use this structure:
 ### <Critical|High|Medium|Low>: <issue title>
 - **File**: `path/to/file` (Lines L<start>-L<end>)
 - **Context**: <why this matters>
-- **Suggestion**:
-```diff
-- old_code
-+ new_code
-```
+- **Suggestion**: <specific fix or compact diff>
 
 ## Verification Checks
-- [ ] **Review Scope**: <scope or range> - <explicit|recorded|inferred>, <high|user-confirmed> confidence; <brief evidence>
-- [ ] **Plan Compliance**: <Yes|No|Partial> - <comment>
-- [ ] **Style Compliance**: <Pass|Fail|Not checked> - <comment>
+- [ ] **Review Scope**: <scope> — <provenance>, <confidence>; <evidence>
+- [ ] **Plan Compliance**: <Yes|No|Partial> — <comment>
+- [ ] **Style Compliance**: <Pass|Fail|Not checked> — <comment>
 - [ ] **New Tests**: <Yes|No|Not applicable>
 - [ ] **Test Coverage**: <Yes|No|Partial|Not checked>
-- [ ] **Test Results**: <Passed|Failed|Not run> - <summary>
+- [ ] **Test Results**: <Passed|Failed|Not run> — <summary>
 
 ## Summary
-<single sentence description of readiness>
+<one-sentence readiness assessment>
 ```
 
-If there are no findings, write:
+When no findings exist, write `No findings.` and identify residual risk or testing gaps.
 
-```markdown
-## Findings
-No findings.
-```
+### 6. Resolve findings
 
-## 8. Review Decision
+Recommendation:
 
-Announce the recommendation:
+- Critical/High: fix before proceeding.
+- Medium/Low only: broadly acceptable, with improvements recommended.
+- No findings: ready subject to stated limitations.
 
-- Critical or High findings: recommend fixing important issues before moving forward.
-- Only Medium/Low findings: changes are broadly acceptable but improvements are recommended.
-- No findings: changes look ready, subject to any listed test limitations.
-
-If findings exist, ask how to proceed:
+When findings exist, ask:
 
 - Title: `Decision`
 - Prompt: `How would you like to proceed with the review findings?`
-- Selection: single
-- Choices:
-  - `Apply Fixes`: Apply suggested fixes now.
-  - `Manual Fix`: Stop so the user can fix issues manually.
-  - `Complete Track`: Proceed despite findings.
+- Choices: `Apply Fixes`, `Manual Fix`, `Complete Track`
 
-If the user chooses `Apply Fixes`, apply only fixes directly supported by the findings. Do not broaden scope. Apply Critical/High fixes when they are clear and localized. For Medium/Low suggestions that require broad refactors, behavior changes, or subjective tradeoffs, ask for separate confirmation before editing. After applying fixes, rerun relevant tests or explain why they were not rerun.
+`Apply Fixes` applies only supported findings and reruns relevant tests. `Manual Fix` stops. `Complete Track` accepts the findings without applying fixes. With no findings, continue directly.
 
-If the user chooses `Manual Fix`, stop and leave files unchanged beyond any already-approved edits.
+### 7. Commit and record review changes
 
-If the user chooses `Complete Track`, proceed without applying fixes.
+If no files changed, skip this stage.
 
-If no findings exist, proceed to Section 9.
-
-## 9. Commit and Track Review Changes
-
-Check for review-related changes after fixes.
-
-If no changes were made, proceed to Section 10.
-
-If changes exist and no track context is active, ask:
-
-- Title: `Commit Changes`
-- Prompt: `Review fixes changed files. Should I commit them?`
-- Selection: single
-- Choices: `Yes`, `No`.
-
-If the user confirms, that confirmation counts as explicit commit authorization for these non-track review changes only. Commit with:
+For non-track fixes, ask with Title `Commit Changes`, Prompt `Review fixes changed files. Should I commit them?`, and Choices `Yes`, `No`. If authorized, use:
 
 ```text
 architect(review): apply review fixes
 ```
 
-If changes exist and a track context is active, ask:
+For track fixes, ask:
 
 - Title: `Commit & Track`
 - Prompt: `Review fixes changed files. Should I record them in the track plan? I will only commit if commits are already authorized or you explicitly authorize committing now.`
-- Selection: single
-- Choices: `Yes`, `No`.
+- Choices: `Yes`, `No`
 
-If the user confirms:
+On `Yes`:
 
-1. Append or reuse a Review Fixes phase in `architect/tracks/<track_id>/plan.md`:
+1. Append or reuse `## Phase: Review Fixes`.
+2. Reuse an active `Apply review suggestions` task; after a completed task, create `Apply review suggestions 2` or ask for a label when several exist.
+3. Mark the task `[~]`, preserve approved fixes, and save the plan.
+4. If authorized, commit code with `architect(review): apply fixes for track <track_id>`.
+5. Mark the task `[x]` with the short SHA or `no-commit`.
+6. If authorized, commit the plan update with `architect(plan): record review fixes for track <track_id>`.
+7. Report every changed but uncommitted file.
 
-- If no Review Fixes phase exists, append it.
-- If `- [~] Task: Apply review suggestions` already exists, reuse that task.
-- If a completed `- [x] Task: Apply review suggestions ...` already exists, append a new task named `Apply review suggestions 2` or ask the user for a task label when multiple completed review-fix tasks already exist.
+### 8. Cleanup
 
-```markdown
-## Phase: Review Fixes
-- [~] Task: Apply review suggestions
-```
+Skip cleanup without track context. Offer it only after review completes, the user did not choose Manual Fix, and the track is `[x]` or cleanup was explicitly requested.
 
-Save `plan.md` after adding or marking the review task `[~]`.
+Ask with Title `Track Cleanup`, Prompt `Review complete for track '<track_id>'. What would you like to do?`, and Choices `Archive`, `Delete`, `Skip`.
 
-2. Apply or keep the approved review fix changes.
-3. If commits are authorized, commit code changes with:
+#### Archive
 
-```text
-architect(review): apply fixes for track <track_id>
-```
+Before concise explicit confirmation:
 
-4. If a commit exists, record the short SHA on the review task. Otherwise mark it with `no-commit`.
-5. Update the review task to `[x]` and save `plan.md` regardless of whether commits are authorized.
-6. If commits are authorized, commit the plan update with:
+1. Warn that the entire track directory, including expected and extra files, will move.
+2. Report unexpected files and uncommitted changes.
+3. Halt if `architect/archive/<track_id>/` already exists.
+4. Ask with Title `Confirm Archive`, Prompt `Archive architect/tracks/<track_id>/ to architect/archive/<track_id>/ and remove it from architect/tracks.md?`, and Choices `Yes`, `No`.
 
-```text
-architect(plan): record review fixes for track <track_id>
-```
+On `Yes`, move the entire directory, verify destination exists and source does not, remove an empty residual source directory only after inspection, stop on non-empty residual contents, then remove the registry section. Commit `architect(cleanup): archive track <track_id>` only when separately authorized.
 
-If changes were made but not committed, report changed files, including `architect/tracks/<track_id>/plan.md` when updated, so the user can review or commit manually.
+#### Delete
 
-## 10. Track Cleanup
+Report unexpected or uncommitted contents. Ask with Title `Confirm`, Prompt `WARNING: This permanently deletes architect/tracks/<track_id>/, including spec.md, plan.md, metadata.json, index.md, and any user notes or extra files. This cannot be undone. Type or choose Yes only if you are sure.`, and Choices `Yes`, `No`. Delete and remove the registry section only after explicit confirmation. Commit `architect(cleanup): delete track <track_id>` only when separately authorized.
 
-Skip cleanup when there is no track context.
+#### Skip
 
-Offer cleanup only after review is complete, the user is not choosing `Manual Fix`, and either the reviewed track is marked `[x]` or the user explicitly requested cleanup. Do not offer archive/delete for an in-progress track by default.
+Leave the track registered and unchanged.
 
-Ask:
+## Stop Conditions
 
-- Title: `Track Cleanup`
-- Prompt: `Review complete for track '<track_id>'. What would you like to do?`
-- Selection: single
-- Choices:
-  - `Archive`: Move the track folder to `architect/archive/` and remove it from `architect/tracks.md`.
-  - `Delete`: Permanently delete the track folder and remove it from `architect/tracks.md`.
-  - `Skip`: Leave the track in place.
+Stop and report the current evidence when:
 
-### 10.1 Archive
-
-If the user chooses `Archive`:
-
-1. Warn that this will move the track folder, including `spec.md`, `plan.md`, `metadata.json`, `index.md`, and any user notes or extra files inside it.
-2. Check whether the track folder contains unexpected files beyond `spec.md`, `plan.md`, `metadata.json`, and `index.md`; present those details in a normal assistant message before confirmation if present.
-3. If Git is available, check whether the track folder has uncommitted changes; present that warning in a normal assistant message before confirmation if present.
-4. If `architect/archive/<track_id>/` already exists, halt and ask the user whether to choose a different archive name, delete the existing archive manually, or skip cleanup.
-5. Ask for confirmation:
-   - Title: `Confirm Archive`
-   - Prompt: `Archive architect/tracks/<track_id>/ to architect/archive/<track_id>/ and remove it from architect/tracks.md?`
-   - Selection: single
-   - Choices: `Yes`, `No`.
-6. If the user does not confirm, leave the track unchanged.
-7. Create `architect/archive/` if needed.
-8. Move the entire directory `architect/tracks/<track_id>/` to `architect/archive/<track_id>/`; do not move only its contents.
-9. Verify that `architect/archive/<track_id>/` exists and `architect/tracks/<track_id>/` no longer exists.
-10. If `architect/tracks/<track_id>/` still exists after the move, inspect it before taking further action:
-
-- If the remaining source directory is empty, remove that empty directory and verify it no longer exists.
-- If the remaining source directory contains any files or subdirectories, stop and report the unexpected remaining contents instead of deleting them.
-
-11. Remove the track section from `architect/tracks.md`.
-12. Announce the archived path.
-
-If commits are authorized, commit with:
-
-```text
-architect(cleanup): archive track <track_id>
-```
-
-Otherwise, do not commit.
-
-### 10.2 Delete
-
-If the user chooses `Delete`, ask for final confirmation with a warning.
-
-Before asking, check whether the track folder contains unexpected files or uncommitted changes when Git is available, and present those details in the warning message before the concise confirmation prompt.
-
-- Title: `Confirm`
-- Prompt: `WARNING: This permanently deletes architect/tracks/<track_id>/, including spec.md, plan.md, metadata.json, index.md, and any user notes or extra files. This cannot be undone. Type or choose Yes only if you are sure.`
-- Selection: single
-- Choices: `Yes`, `No`.
-
-Only if the user confirms:
-
-1. Delete `architect/tracks/<track_id>/`.
-2. Remove the track section from `architect/tracks.md`.
-3. Announce deletion.
-
-If commits are authorized, commit with:
-
-```text
-architect(cleanup): delete track <track_id>
-```
-
-Otherwise, do not commit.
-
-If the user does not confirm, leave the track unchanged.
-
-### 10.3 Skip
-
-If the user chooses `Skip`, announce that the track will remain in `architect/tracks.md`.
+- Required track context is missing or unsafe.
+- Scope remains ambiguous after the allowed question.
+- No reviewable diff exists.
+- A requested test requires confirmation and approval is not given.
+- The user chooses Manual Fix or Cancel.
+- A fix would exceed reported findings or granted authorization.
+- A commit cannot be safely isolated.
+- Cleanup is unconfirmed, collides with an archive, or leaves unexpected source contents.
+- An operation remains unsuccessful after one clear correction.
+- Review and any authorized follow-up are complete.

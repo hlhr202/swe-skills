@@ -5,28 +5,21 @@ description: Initialize or resume Architect project setup by creating only the c
 
 # Architect Setup
 
-Use this skill to initialize or resume an Architect project setup. Architect is a project-planning workflow that stores durable project context in an `architect/` directory. Setup prepares only the product, guidelines, technology stack, style guides, workflow, and index context. After setup, use `architect-discuss` to explore the first direction; once scope is confirmed, use `architect-propose`.
+Initialize or resume the durable Architect core context, then hand off to discussion. Follow `references/setup-protocol.md` as the source of truth.
 
-## Core Rules
+## Hard Boundaries
 
-- Follow the bundled resource `references/setup-protocol.md` as the source of truth for the setup sequence.
-- Use Architect semantics consistently: `architect/`, `/architect-*`, `Architect methodology`, and `architect(...)` commit scopes.
-- Use relative paths rooted in the user's project when creating Architect files. Architect-managed files must stay under `architect/`; do not use absolute paths or `..`.
-- Ask the user through the active agent runtime's user-interaction mechanism. If structured choices are unavailable, present the options in text and wait for the user's reply.
-- Present detailed Markdown, drafts, diffs, reports, or risk analysis in a normal assistant message before asking for a decision. Use interactive prompts only for concise plain-text questions and short plain-text choices.
-- Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits. Do not use shell redirection to write files.
-- Validate each operation result before continuing. If a step fails, correct it once when the error is clear; otherwise stop and report the blocker.
-- Do not commit unless the user explicitly asks for a commit in the current conversation.
+- Create only product, product-guideline, tech-stack, code-style, workflow, and index context. Never create or repair tracks.
+- Keep writes under `architect/`; reject absolute paths and `..`.
+- Use reviewable edits, preferably patches; never use shell redirection for writes.
+- Commit only when the user explicitly requests it in the current conversation.
 
-## Bundled Templates
+## Run
 
-- Bundled resource `references/workflow.md` is the default Architect workflow template.
-- Bundled resources under `references/code_styleguides/*.md` are code style guides. Enumerate this bundled resource directory at setup time so newly added guides are automatically available.
+1. Read `references/setup-protocol.md`.
+2. Audit core artifacts and resume at the earliest incomplete state.
+3. Detect Greenfield or Brownfield context and follow the required approval gates.
+4. Complete and approve each missing core artifact in order.
+5. Stop when core context is ready; summarize changes and recommend `/architect-discuss`.
 
-## Execution
-
-1. Read the bundled resource `references/setup-protocol.md`.
-2. Audit the target project for existing `architect/` artifacts.
-3. Resume from the correct setup stage or initialize from scratch.
-4. Stop after core context is complete; do not create or modify proposal or track artifacts.
-5. Summarize created files and recommend `/architect-discuss` as the next step.
+Bundled `references/workflow.md` is the default workflow. Enumerate `references/code_styleguides/*.md` at runtime so newly bundled guides remain available.

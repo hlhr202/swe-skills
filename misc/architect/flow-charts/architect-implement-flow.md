@@ -9,8 +9,14 @@ flowchart TD
     SetupCheck -->|Ready| Parse[Parse tracks.md]
     Parse --> Select{Can target track be selected uniquely?}
     Select -->|No| AskTrack[Ask user to choose a track]
-    Select -->|Yes| Resolve[Resolve safe track directory from registry link]
-    AskTrack --> Resolve
+    Select -->|Yes| ConfirmTrack{User confirms matched track?}
+    ConfirmTrack -->|No| AskTrack
+    ConfirmTrack -->|Yes| CompletedTrack{Track already complete?}
+    AskTrack --> CompletedTrack
+    CompletedTrack -->|No| Resolve[Resolve safe track directory from registry link]
+    CompletedTrack -->|Yes| ReopenConfirm{User explicitly confirms reopening?}
+    ReopenConfirm -->|No| StopReopen[Halt without changes]
+    ReopenConfirm -->|Yes| Resolve
     Resolve --> TrackFiles[Read spec.md, plan.md, metadata.json, workflow, product, guidelines, and tech stack]
     TrackFiles -->|Missing track file| HaltIncomplete[Halt and suggest setup recovery or track inspection]
     TrackFiles -->|Ready| GitBaseline[Capture and classify existing worktree changes]
@@ -80,6 +86,6 @@ flowchart TD
     Archive --> Summary
     Delete --> Summary
 
-    class AskTrack,ModeAsk,AskGuidance,ManualSteps,ManualConfirm,CheckpointAsk,DocApproval,CleanupChoice,ArchiveConfirm,DeleteConfirm human;
+    class AskTrack,ConfirmTrack,ReopenConfirm,ModeAsk,AskGuidance,ManualSteps,ManualConfirm,CheckpointAsk,DocApproval,CleanupChoice,ArchiveConfirm,DeleteConfirm human;
     classDef human fill:#fff3cd,stroke:#f0ad4e,stroke-width:2px,color:#111;
 ```

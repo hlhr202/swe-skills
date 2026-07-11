@@ -38,8 +38,13 @@ flowchart TD
     AskTradeoff --> TradeoffGate
     TradeoffGate -->|Passed or deferred| Readiness[Present readiness check]
     Readiness --> ReadyGate{Generate final synthesis?}
-    ReadyGate -->|Revise| Reopen[Return to selected earlier loop]
-    Reopen --> Requirements
+    ReadyGate -->|Revise| Reopen{Return to which earlier loop?}
+    Reopen -->|Requirements| Requirements
+    Reopen -->|Scope| Scope
+    Reopen -->|Product| Product
+    Reopen -->|Constraints| Constraints
+    Reopen -->|Options| Options
+    Reopen -->|Tradeoffs| Tradeoffs
     ReadyGate -->|Yes| Synthesis[Generate product and architecture draft]
     Synthesis --> SelfReview[Self-review draft for contradictions, placeholders, assumptions, and readiness]
     SelfReview --> NextStep{User next step?}
@@ -55,6 +60,6 @@ flowchart TD
     Handoff --> End
     Split --> End
 
-    class AskBackground,AskRequirement,AskScope,AskProduct,AskConstraint,AskOption,AskTradeoff,ReadyGate,NextStep,SaveConfirm human;
+    class AskBackground,AskRequirement,AskScope,AskProduct,AskConstraint,AskOption,AskTradeoff,ReadyGate,Reopen,NextStep,SaveConfirm human;
     classDef human fill:#fff3cd,stroke:#f0ad4e,stroke-width:2px,color:#111;
 ```

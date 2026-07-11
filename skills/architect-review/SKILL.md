@@ -5,30 +5,20 @@ description: Review Architect track work or explicit current changes against pro
 
 # Architect Review
 
-Use this skill to review Architect track implementation or current repository changes with a principal-engineer review mindset. The review prioritizes correctness, security, maintainability, plan compliance, test coverage, and project standards.
+Perform a findings-first principal-engineer review of a track or explicit change scope. Follow `references/review-protocol.md` as the source of truth.
 
-## Core Rules
+## Hard Boundaries
 
-- Follow the bundled resource `references/review-protocol.md` as the source of truth.
-- Use Architect semantics consistently: `architect/`, `/architect-*`, `Architect methodology`, and `architect(...)` commit scopes.
-- Require initialized Architect context before track-based review.
-- Use relative paths rooted in the user's project when editing Architect files. Architect-managed files must stay under `architect/`; do not use absolute paths, `..`, or track links outside `architect/tracks/`.
-- Ask the user through the active agent runtime's user-interaction mechanism for decisions and review confirmations. If structured choices are unavailable, present the options in text and wait for the user's reply.
-- Do not ask the user to reconfirm an exact or uniquely identified track, a valid explicit revision range, or a high-confidence range derived from track evidence. Announce the adopted scope and its evidence, then proceed. Ask once only when scope or range evidence is ambiguous, conflicting, or unresolvable.
-- Present detailed Markdown, findings, diffs, reports, or risk analysis in a normal assistant message before asking for a decision. Use interactive prompts only for concise plain-text questions and short plain-text choices.
-- Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits. Do not use shell redirection to write files.
-- Validate each operation result before continuing. If a step fails, correct it once when the error is clear; otherwise stop and report the blocker.
-- Do not commit unless the user explicitly asks for a commit in the current conversation or has explicitly authorized commits for the current review workflow.
-- Do not archive or delete track folders unless the user explicitly confirms that cleanup action.
+- Require Architect context for track review; warn before limited non-track review without it.
+- Adopt exact or high-confidence scope without reconfirmation; ask once only for ambiguity.
+- A review request does not authorize fixes. `Apply Fixes` authorizes only reported findings.
+- Commit, archive, or delete only with the protocol's explicit authorization.
 
-## Execution
+## Run
 
-1. Read the bundled resource `references/review-protocol.md`.
-2. Verify required Architect context when doing track-based review.
-3. Identify review scope and automatically adopt it when exact or uniquely supported; ask only to resolve ambiguity.
-4. Load project context, style guides, track spec/plan, and determine the relevant diff using an evidence-based confidence check.
-5. Analyze plan compliance, style compliance, correctness, safety, and tests.
-6. Produce a findings-first review report.
-7. Ask how to proceed with findings.
-8. If fixes are applied, track them safely and commit only when authorized.
-9. Offer safe archive/delete/skip cleanup only for track reviews.
+1. Read `references/review-protocol.md` and classify track versus non-track scope.
+2. Adopt or confirm scope once, load applicable context, and derive the diff with recorded confidence.
+3. Review plan, product, stack, style, correctness, security, maintainability, and tests.
+4. Return findings first, ordered by severity, with verification and residual risk.
+5. Apply and record only authorized fixes.
+6. Offer cleanup only for an eligible track and require exact confirmation for destructive actions.

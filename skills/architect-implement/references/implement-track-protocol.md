@@ -1,409 +1,314 @@
 # Architect Implement Track Protocol
 
-This protocol implements an existing Architect track by executing its `plan.md`, following `architect/workflow.md`, and keeping Architect project documents synchronized.
+## Purpose
 
-## 1. System Directive
+Implement or resume one existing Architect track from its approved `plan.md`, follow `architect/workflow.md`, keep track and project context synchronized, verify the result, and finish with the authorized track-scoped terminal state.
 
-You are implementing an Architect track. Follow the selected track's `plan.md` and the project's `architect/workflow.md` precisely, while respecting the selected implementation mode, user confirmations, and the active agent runtime's safety rules.
+## Success Criteria
 
-Validate every operation result. If an operation fails because of a recoverable path or command issue, self-correct once. If it remains unrecoverable, stop, report the failure, and wait for the user.
+Implementation succeeds when:
 
-Use relative project paths such as `architect/tracks.md` and `architect/tracks/<track_id>/plan.md`. Architect-managed files must stay under `architect/`; never create or follow absolute paths, parent-directory paths (`..`), or track links outside `architect/tracks/`. Do not write files with shell redirection. Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits.
+- One valid track is selected and its context is loaded.
+- The user selects Manual or Auto Mode before work begins.
+- Every actionable task and phase verification gate reaches completion in order.
+- Required tests, coverage, and manual or automated verification succeed or their accepted limitations are recorded.
+- Registry, plan, metadata, and routine project documentation reflect the completed work.
+- The final track-scoped commit is verified, unless the user explicitly opts out.
+- Unrelated pre-existing changes remain preserved and unstaged.
+- Cleanup occurs only when separately confirmed.
 
-A request to implement a track authorizes one final, track-scoped implementation commit after implementation, track bookkeeping, final verification, and routine documentation synchronization complete successfully. Do not create that final commit when the user explicitly opts out of commits. Auto Mode additionally authorizes phase checkpoint commits. Manual Mode checkpoint commits and ordinary task commits still require separate explicit authorization.
+## Hard Boundaries
 
-Before editing, capture the existing Git worktree state. Stage only inspected files or hunks that belong to the selected track and the current implementation workflow. Never use broad staging such as `git add .` or `git add -A`, and never include unrelated or ambiguous pre-existing changes. If track-related changes cannot be isolated safely, stop before committing and report the blocker.
+- Require initialized Architect core context and a valid existing track.
+- Treat the selected `plan.md` as implementation scope and `architect/workflow.md` as task-lifecycle authority.
+- Keep Architect-managed reads and writes under `architect/`. Reject absolute paths, parent traversal (`..`), invalid IDs, and links outside `architect/tracks/`.
+- Capture the Git worktree before editing. Never modify, stage, or commit unrelated or ambiguous pre-existing changes.
+- Never use broad staging such as `git add .` or `git add -A`.
+- Do not skip pending or active tasks, sub-tasks, phase protocol meta-tasks, or Manual Mode confirmation gates.
+- Do not start a later phase while an earlier phase verification gate is incomplete.
+- Do not make a significant technology-stack change without approval.
+- Do not change sensitive product guidelines without approval in either mode.
+- Do not archive or delete a track without explicit confirmation of that exact action.
+- Use reviewable edits, preferably patch-based; do not write files with shell redirection.
+- Validate every operation. Retry once only for a clear recoverable path or command issue; otherwise stop.
 
-Do not run destructive cleanup such as deleting a track folder unless the user explicitly confirms that exact action.
+## State Model
 
-## 2. Setup Check
+### Track and metadata
 
-Verify that Architect is initialized before implementing a track.
+```text
+new -> in_progress -> completed
+[ ] -> [~] -> [x]
+```
 
-Required setup files:
+Registry marker and metadata status move together. A completed track may return to `in_progress` only after explicit reopening confirmation.
 
-- `architect/product.md`
-- `architect/product-guidelines.md`
-- `architect/tech-stack.md`
-- `architect/workflow.md`
-- `architect/index.md`
-- `architect/tracks.md`
+### Tasks and sub-tasks
 
-Required tracks directory:
+```text
+[ ] -> [~] -> [x]
+```
 
-- `architect/tracks/`
+- `[ ]`: pending.
+- `[~]`: active and must be resumed before later work.
+- `[x]`: completed and recorded.
 
-If any core setup file is missing, halt and tell the user to run `/architect-setup` first. If the core setup files exist but `architect/tracks.md` or `architect/tracks/` is missing, halt and tell the user to run `/architect-propose` first.
+A phase is complete only when every parent task and actionable sub-task is `[x]` and its phase protocol meta-task, when present, is `[x]`.
 
-Use this message when the missing state is ambiguous or includes both core context and track management files:
+The generated phase protocol meta-task is exactly `Task: Architect - User Manual Verification '<Phase Name>' (Protocol in workflow.md)`. Treat Markdown headings beginning with `##` as phase boundaries.
+
+### Workflow states
+
+```text
+selected
+  -> mode_selected
+  -> in_progress
+  -> task_loop
+  -> phase_verified (repeat per phase)
+  -> completed
+  -> docs_synchronized
+  -> final_commit_verified | completed_without_commit
+  -> cleanup_or_stop
+```
+
+## Decision Rules
+
+### Setup and track validity
+
+Core implementation context requires product, product guidelines, tech stack, workflow, index, registry, and tracks directory. Missing core context routes to `/architect-setup`; missing registry or tracks directory routes to `/architect-propose`.
+
+A valid track registry entry has one marker, description, safe link, and ID matching `^[0-9]{8}_[a-z0-9_]+$`:
+
+```markdown
+- [ ] **Track: <description>**
+  *Link: [./tracks/<track_id>/](./tracks/<track_id>/)*
+```
+
+Accept `[ ]`, `[~]`, or `[x]`. Resolve only `./tracks/<track_id>/` or equivalent `architect/tracks/<track_id>/` links. The selected track must contain `spec.md`, `plan.md`, `metadata.json`, and `index.md`. Setup cannot repair missing track artifacts; halt and report an incomplete track.
+
+### Track selection
+
+- User supplies an ID or name: match IDs case-insensitively first, then descriptions. For exactly one match, ask `I found track '<description>'. Is this correct?` with `Yes` or `No`.
+- No target supplied: choose the first non-complete track and ask whether to proceed.
+- No unique match: ask the user to choose from incomplete tracks or provide an exact ID.
+- Duplicate selected ID or duplicate description after description matching: halt and require an exact ID or registry repair.
+- Selected `[x]` track: ask `Reopen Track`; proceed only on explicit `Yes`.
+- All tracks `[x]`: stop; no incomplete track exists.
+
+Use these prompt contracts:
+
+| Situation | Title | Prompt | Choices |
+| --- | --- | --- | --- |
+| Unique supplied match | `Confirm` | `I found track '<track_description>'. Is this correct?` | `Yes`, `No` |
+| No supplied target | `Next Track` | `No track name was provided. Proceed with the next incomplete track: '<track_description>'?` | `Yes`, `No` |
+| Completed target | `Reopen Track` | `Track '<track_description>' is already complete. Do you want to reopen it for implementation?` | `Yes`, `No` |
+
+### Worktree ownership
+
+Classify baseline changes against the track spec and plan as related, unrelated, or ambiguous.
+
+- Preserve unrelated changes without staging or modification.
+- Include pre-existing related work only after inspecting and verifying it in this workflow.
+- If implementation must overlap an ambiguous file or hunk, ask once before editing or committing that overlap.
+- If safe isolation is impossible, implementation may continue only where safe, but finalization must stop before a mixed commit.
+
+### Task selection
+
+- Before selecting normal work, scan phases in file order for an earlier phase whose non-meta work is complete but whose phase protocol meta-task is `[ ]` or `[~]`; select that meta-task first.
+- Otherwise resume the first `[~]` parent task, then choose the next `[ ]` parent task.
+- Within a parent, resume the first `[~]` actionable sub-task, then choose the next `[ ]` sub-task.
+- Plain bullets, notes, summaries, and prose are not actionable.
+- If no recognized task remains but unfinished checkbox work exists in an unrecognized structure, halt as malformed.
+
+### Implementation modes
+
+- Manual Mode preserves every human confirmation in the workflow.
+- Auto Mode bypasses phase-level human confirmation only; it performs or safely substitutes verification and creates required phase checkpoint commits.
+- Both modes stop at safety boundaries and unrecoverable failures.
+
+## Approval Boundaries
+
+| Action | Authorization |
+| --- | --- |
+| Select exact matched track | Explicit `Yes` to track confirmation |
+| Reopen completed track | Explicit `Yes` to `Reopen Track` |
+| Start implementation | Manual or Auto Mode selection |
+| one final, track-scoped implementation commit | The implementation request, unless the user opts out |
+| Auto phase checkpoint commits | Auto Mode selection |
+| Manual Mode checkpoint commits | Separate explicit commit authorization |
+| Ordinary task or plan commits | Separate explicit commit authorization in either mode |
+| Routine product/tech documentation sync | Auto Mode; Manual requires diff approval |
+| Sensitive product-guideline change | Explicit approval in both modes |
+| Significant tech-stack change | Explicit approval before implementation continues |
+| Archive or delete | Explicit confirmation of the exact cleanup action |
+
+Auto Mode additionally authorizes phase checkpoint commits. It does not authorize ordinary task commits, unrelated commits, cleanup, archive, or delete.
+
+## Workflow
+
+### 1. Verify Architect context
+
+Check required core files, registry, and tracks directory. When the missing state is ambiguous, say:
 
 ```text
 Architect has no implementable track. Run `/architect-setup` if core context is missing, or `/architect-propose` to create the first track after scope is confirmed.
 ```
 
-Do not proceed when required core context or track registry state is incomplete.
+### 2. Parse and select a track
 
-## 3. Track Selection
+Parse registry sections separated by `---`, validate markers, descriptions, links, and IDs, then apply the selection rules. Do not proceed without a confirmed selection.
 
-### 3.1 Parse Tracks Registry
+### 3. Load track and project context
 
-Read `architect/tracks.md` and parse track entries separated by `---`.
+Announce the track. Resolve only the validated registry link. Read track spec, plan, metadata, index, workflow, product, tech stack, and product guidelines.
 
-For each track section, extract:
+### 4. Capture the worktree baseline
 
-- Status marker: `[ ]`, `[~]`, or `[x]`.
-- Track description from the Architect registry item format: `- [ ] **Track: <description>**`, `- [~] **Track: <description>**`, or `- [x] **Track: <description>**`.
-- Track folder link, normally `./tracks/<track_id>/`.
-- Track ID from the folder link.
+If Git is available, record `git status --short`, inspect existing diffs as needed, and classify ownership before editing.
 
-Track IDs parsed from the registry must match `^[0-9]{8}_[a-z0-9_]+$`. Treat entries with invalid IDs as malformed and do not resolve their directories.
+### 5. Select implementation mode
 
-If no valid track sections are found, halt and tell the user:
-
-```text
-The tracks file is empty or malformed. No tracks are available to implement.
-```
-
-### 3.2 Select Track
-
-If the user provided a track name or track ID in the prompt:
-
-1. Match it case-insensitively against track IDs first. If no track ID matches, match against descriptions.
-2. If exactly one match is found, ask for confirmation:
-   - Title: `Confirm`
-   - Prompt: `I found track '<track_description>'. Is this correct?`
-   - Selection: single
-   - Choices: `Yes`, `No`.
-3. If no unique match is found, ask the user to choose from the available incomplete tracks or provide an exact track name.
-
-If no track name was provided:
-
-1. Select the first track not marked `[x]`.
-2. Ask for confirmation:
-   - Title: `Next Track`
-   - Prompt: `No track name was provided. Proceed with the next incomplete track: '<track_description>'?`
-   - Selection: single
-   - Choices: `Yes`, `No`.
-3. If the user says no, ask them to choose from available incomplete tracks or provide an exact track name.
-
-If all tracks are marked `[x]`, halt and tell the user:
-
-```text
-No incomplete tracks found in architect/tracks.md. All tracks are complete.
-```
-
-Do not proceed without a selected track.
-
-After selecting a track, verify the registry contains exactly one entry with the selected track ID. If selection was made by description and multiple entries share that description, halt and ask the user to select by track ID or fix `architect/tracks.md` before implementation.
-
-If the selected track is marked `[x]`, ask for explicit reopening confirmation before loading it:
-
-- Title: `Reopen Track`
-- Prompt: `Track '<track_description>' is already complete. Do you want to reopen it for implementation?`
-- Selection: single
-- Choices: `Yes`, `No`.
-
-If the user does not confirm reopening, halt without changing the track.
-
-## 4. Load Track Context
-
-Announce which track you are beginning to implement.
-
-Resolve the selected track directory from the registry link only when the parsed `track_id` matches `^[0-9]{8}_[a-z0-9_]+$` and the link is `./tracks/<track_id>/` or the equivalent `architect/tracks/<track_id>/`. If the link is absolute, contains `..`, has an invalid track ID, or points outside `architect/tracks/`, halt and ask the user to fix `architect/tracks.md` before continuing.
-
-Required track files:
-
-- `spec.md`
-- `plan.md`
-- `metadata.json`
-- `index.md`
-
-Read:
-
-- Track specification: `architect/tracks/<track_id>/spec.md`
-- Track implementation plan: `architect/tracks/<track_id>/plan.md`
-- Track metadata: `architect/tracks/<track_id>/metadata.json`
-- Project workflow: `architect/workflow.md`
-- Product context: `architect/product.md`
-- Tech stack: `architect/tech-stack.md`
-- Product guidelines: `architect/product-guidelines.md`
-
-If any required track file is missing, halt and tell the user to run `/architect-setup` recovery or inspect the incomplete track before continuing.
-
-## 5. Select Implementation Mode
-
-After loading the track context and before marking the track in progress, ask the user to choose the implementation mode:
+Ask:
 
 - Title: `Implementation Mode`
 - Prompt: `How should Architect implement this track?`
-- Selection: single
 - Choices:
-  - `Manual`: Preserve the existing workflow. Ask for phase-level manual verification confirmation and create commits only when explicitly authorized.
-  - `Auto`: Run the full plan without phase-level human confirmation. The agent performs phase verification itself, creates phase checkpoint commits, and continues until the full `plan.md` is complete or a safety boundary is reached.
+  - `Manual`: preserve phase-level human verification; checkpoint and ordinary task commits need explicit authorization.
+  - `Auto`: execute the full plan without phase-level human confirmation; verify automatically and create phase checkpoint commits.
 
-Do not start implementation without a selected mode.
+Do not mark the track active until a mode is selected.
 
-Mode rules:
+Auto Mode still stops when verification remains failing after allowed fixes, a significant tech change is needed, cleanup is destructive, product guidelines would materially change, a path or plan is unsafe, or an operation remains unrecoverable.
 
-- Manual Mode preserves all existing human-in-the-loop workflow steps.
-- The implementation request authorizes one final track-scoped commit in both modes unless the user explicitly opts out. That final commit may include remaining implementation changes, track completion bookkeeping, the last checkpoint hash update, and routine documentation synchronization for the selected track.
-- Auto Mode additionally authorizes phase checkpoint commits for the current implementation workflow. It does not authorize ordinary task commits, cleanup, archive, delete, or unrelated commits unless separately authorized.
-- Auto Mode bypasses phase-level human confirmation only. It must still stop for unrecoverable blockers and the safety boundaries below.
+### 6. Mark Track In Progress
 
-Auto Mode safety boundaries:
+Change the selected registry marker to `[~]`, metadata status to `in_progress`, and refresh `updated_at`. Do not reopen `[x]` without prior confirmation.
 
-- If tests or verification fail and remain failing after the workflow's allowed fix attempts, stop and ask the user for guidance.
-- If implementation requires a significant technology stack change, stop, propose the `architect/tech-stack.md` change, and get user approval before continuing.
-- If cleanup would archive or delete a track folder, ask for explicit confirmation before that destructive action.
-- If documentation synchronization would materially change `architect/product-guidelines.md`, ask for explicit approval before editing that sensitive file.
-- If required files are missing, a plan is malformed, a path fails Architect safety checks, or an operation remains unrecoverable after one clear self-correction, stop and report the blocker.
+### 7. Execute Plan Tasks
 
-## 6. Mark Track In Progress
+Loop sequentially:
 
-Before implementation work starts:
+1. Select work using the task rules.
+2. Change a pending parent to `[~]` and save `plan.md` before application-code edits.
+3. For a phase protocol meta-task, skip normal implementation and run Section 8.
+4. For each actionable sub-task, persist `[ ] -> [~]`, perform the work, then persist `[~] -> [x]`.
+5. Follow workflow tests, coverage, documentation, and verification requirements.
+6. Manual Mode uses the runtime interaction mechanism for required human gates. Auto Mode handles only phase-level gates automatically.
+7. Complete and record one parent task at a time; do not batch-complete parents.
+8. Mark the parent `[x]` only after its actionable sub-tasks or direct work complete.
+9. Record the workflow task summary and use `no-commit` when no commit exists.
+10. Rescan the phase. Run the phase protocol before any later-phase work.
 
-- If Git is available, capture `git status --short` as the implementation baseline. Classify existing changes as clearly related to the selected track, clearly unrelated, or ambiguous by inspecting them against `spec.md` and `plan.md`.
-- Preserve clearly unrelated changes without staging or modifying them. Include pre-existing track-related changes in the final commit only after inspecting and verifying them as part of this workflow.
-- If an existing change overlaps a file or hunk that implementation must edit and ownership cannot be determined safely, ask once for clarification before editing or committing that overlap.
+Make the smallest correct change and follow repository conventions. For persistent verification failure, stop after the workflow's allowed attempts.
 
-- Update the selected track entry in `architect/tracks.md` from `[ ]` to `[~]` unless already `[~]`.
-- Update `metadata.json` status to `in_progress` and refresh `updated_at`.
-- Do not change `[x]` tracks back to in progress unless the user explicitly confirms reopening the completed track.
+### 8. Phase Completion Protocol
 
-## 7. Execute Plan Tasks
+Run when a phase protocol meta-task is selected or a phase without one completes and the project workflow defines phase verification.
 
-The track's `plan.md` is the source of truth for implementation scope. `architect/workflow.md` is the source of truth for task lifecycle.
+1. Announce phase verification.
+2. Identify phase-changed code, verify corresponding tests, and add missing tests in project style.
+3. Announce and run required tests or coverage. Allow at most two fix cycles before asking for guidance.
+4. Generate manual verification from product, guidelines, and completed phase tasks.
+5. Manual Mode: present steps and wait for explicit confirmation.
+6. Auto Mode: execute feasible steps with tests, coverage, browser, CLI, API, or inspection; use the closest safe substitute and record limitations when direct execution is impossible.
+7. Auto Mode: create `architect(checkpoint): complete phase <phase_name>`.
+8. Manual Mode: create that checkpoint only when commits are explicitly authorized; otherwise report the skipped checkpoint and continue after verification approval.
+9. Record a checkpoint hash only after its commit succeeds. The hash line remains for a later authorized or final commit because the hash cannot exist inside its own checkpoint.
 
-An actionable sub-task is an indented checkbox line using `[ ]`, `[~]`, or `[x]`. Plain bullets, notes, summaries, and explanatory lines are not actionable sub-tasks and do not participate in status progression.
+For the generated phase protocol meta-task:
 
-A phase is a markdown heading beginning with `##`. A task belongs to the nearest preceding phase heading. A phase is complete only when every parent task in that phase is marked `[x]` and every actionable sub-task under those parent tasks is marked `[x]`.
+1. Mark it `[~]` before verification.
+2. Run the entire phase protocol.
+3. Manual: after confirmation, mark `[x]` with checkpoint SHA or `no-commit`.
+4. Auto: after verification and successful checkpoint, mark `[x]` and append the SHA as a follow-up plan update.
+5. A failed Auto checkpoint is a blocker; do not proceed without it.
 
-The generated parent task named `Task: Architect - User Manual Verification '<Phase Name>' (Protocol in workflow.md)` is a phase protocol meta-task. Do not treat it as normal implementation work. When all non-meta parent tasks in a phase are complete, this meta-task is the next required task and Section 8 must run for the named phase before any later phase can begin.
+### 9. Finalize Track
 
-Loop through tasks in `plan.md` sequentially.
+After every parent and actionable sub-task is `[x]`:
 
-Before selecting any normal parent task, scan phases in file order. If every non-meta parent task and actionable sub-task in a phase is `[x]` but that phase's protocol meta-task is `[ ]` or `[~]`, select that meta-task next even when another later-phase parent task is already `[~]`. Do not continue later-phase work until the earlier phase protocol meta-task is `[x]`.
+- Mark the registry `[x]`.
+- Set metadata to `completed` and refresh `updated_at`.
+- Summarize work and changed files.
+- Keep completion bookkeeping uncommitted until after documentation sync so the final commit captures the terminal state.
 
-For each task:
+### 10. Synchronize Project Documentation
 
-1. Resume the first parent task marked `[~]`, except when the pre-selection scan above finds an earlier pending phase protocol meta-task. If no parent task is `[~]`, select the next parent task marked `[ ]`. If no parent task is `[~]` or `[ ]`, run a final scan of `plan.md`; if no parent task or actionable sub-task remains `[ ]` or `[~]`, stop the task loop and proceed to Section 9. If unfinished actionable work remains in an unrecognized structure, halt and report the malformed plan.
-2. If the selected parent task was `[ ]`, mark it `[~]` in `plan.md` and save the file before changing application code.
-3. If the selected parent task is the generated phase protocol meta-task, skip normal implementation work, run Section 8 immediately for the named phase, then return to the task loop without executing the remaining steps below for that meta-task.
-4. Execute sub-tasks in order. Resume the first actionable sub-task marked `[~]`; otherwise select the next actionable sub-task marked `[ ]`. When a sub-task is `[ ]`, mark it `[~]`, save `plan.md`, complete the work, then mark it `[x]` and save `plan.md` again. Do not skip `[~]` sub-tasks.
-5. Execute subtasks according to `architect/workflow.md`.
-6. Use tests, verification, and documentation rules from the workflow.
-7. In Manual Mode, conduct every human-in-the-loop workflow step through the active agent runtime's user-interaction mechanism. In Auto Mode, automatically handle phase-level verification steps as described in Section 8, but still ask the user for safety-boundary decisions.
-8. Do not mark multiple parent tasks complete in one batch; complete and record one parent task at a time.
-9. When all sub-tasks for the parent task are complete, update the parent task from `[~]` to `[x]` and save `plan.md`. If the parent task has no actionable sub-tasks, complete the parent task itself according to `architect/workflow.md` before marking it `[x]`.
-10. Record a task summary in the format required by the workflow. If no commit exists, use the workflow's `no-commit` convention.
-11. After each non-meta parent task, determine its phase and rescan that phase. If every non-meta parent task and actionable sub-task in that phase is `[x]`, the next selected task must be the phase protocol meta-task when one exists. If no phase protocol meta-task exists and every parent task in the phase is `[x]`, Section 8 must run immediately before selecting any task from the next phase.
+Run only after the registry reaches `[x]`. Compare the completed spec with product, tech stack, and product guidelines.
 
-Implementation rules:
+- Product definition: update only for significant user-facing behavior, goals, or capabilities. Manual Mode requires proposed-diff approval; Auto Mode may apply routine already-implemented updates and must report them.
+- Tech stack: update only for significant technology, infrastructure, persistence, testing, or deployment decisions. Manual Mode requires approval. Auto Mode may document decisions already made within the track, but a significant new stack decision still requires approval before implementation.
+- Product guidelines: change only when the spec explicitly changes branding, voice, accessibility, UX principles, or product identity. Present a warning and diff; require approval in both modes.
 
-- Make the smallest correct code changes.
-- Respect existing project conventions before adding new patterns.
-- If implementation requires a tech stack change, stop implementation, propose the `architect/tech-stack.md` change, and get user approval before continuing.
-- Do not skip manual verification steps required by the workflow.
-- If tests fail, debug according to the workflow. If failures persist beyond the workflow's allowed attempts, stop and ask the user for guidance.
+For Manual Mode approvals, and for guidelines in either mode, use:
 
-## 8. Phase Completion Protocol
+| Document | Title | Prompt | Choices |
+| --- | --- | --- | --- |
+| Product definition | `Product` | `Approve the proposed Product Definition updates?` | `Approve`, `Reject` |
+| Technology stack | `Tech Stack` | `Approve the proposed Tech Stack updates?` | `Approve`, `Reject` |
+| Product guidelines | `Guidelines` | `Approve these Product Guidelines changes?` | `Approve`, `Reject` |
 
-When a phase protocol meta-task is selected, or when a completed non-meta task concludes a phase that has no phase protocol meta-task, and `architect/workflow.md` defines a Phase Completion Verification and Checkpointing Protocol:
+Report changed and unchanged documents. Keep routine sync in the final commit unless the user explicitly requested another commit structure.
 
-1. Announce that the named phase is complete and phase verification has begun.
-2. Identify changed code files for the phase, verify that corresponding tests exist, and create missing tests using the repository's existing testing style.
-3. Announce and run the automated test or coverage command required by `architect/workflow.md`. If the command fails, debug according to the workflow and attempt at most two fix cycles before asking the user for guidance.
-4. Generate manual verification steps from `architect/product.md`, `architect/product-guidelines.md`, and the completed phase tasks in `plan.md`.
-5. In Manual Mode, present the manual verification steps to the user through the active agent runtime's user-interaction mechanism.
-6. In Manual Mode, wait for explicit user confirmation before proceeding to the next phase or final track completion.
-7. In Auto Mode, execute the generated manual verification steps directly when feasible. Use tests, coverage, browser automation, command-line checks, API checks, or code inspection as appropriate for the repository and completed phase. If a step cannot be executed directly, perform the closest safe automated substitute and record the limitation in the task summary.
-8. In Auto Mode, do not wait for phase-level human confirmation. Continue to the next phase after automated verification succeeds and the meta-task is recorded complete.
-9. In Auto Mode, stage phase-related changes and create a checkpoint commit using `architect(checkpoint): complete phase <phase_name>`. Treat Auto Mode selection as authorization only for these phase checkpoint commits.
-10. In Manual Mode, if commits are explicitly authorized for the current implementation workflow, stage phase-related changes and create a checkpoint commit using `architect(checkpoint): complete phase <phase_name>`.
-11. In Manual Mode, if commits are not explicitly authorized, do not create a checkpoint commit; continue only after reporting that the checkpoint commit was skipped because commits are not authorized.
-12. When a checkpoint commit is created, record its hash in `plan.md` only after the commit succeeds. The `plan.md` line that records the checkpoint commit hash cannot be included in the same checkpoint commit because the hash does not exist until after that commit is created; it remains a follow-up Architect status update for the next authorized commit or final track update.
+### 11. Final Implementation Commit
 
-When the selected parent task is the generated `Task: Architect - User Manual Verification '<Phase Name>' (Protocol in workflow.md)` meta-task:
+Run only after implementation, bookkeeping, required verification, and documentation synchronization succeed.
 
-1. Mark the meta-task `[~]` before running the protocol.
-2. Run the full phase completion protocol above for `<Phase Name>`.
-3. In Manual Mode, after user confirmation, mark the meta-task `[x]` and append the normal task completion marker: the checkpoint commit hash when one exists, otherwise `no-commit`.
-4. In Auto Mode, after automated verification and checkpoint commit succeed, mark the meta-task `[x]` and append the checkpoint commit hash as a follow-up `plan.md` status update. If checkpoint commit creation fails, stop and report the blocker rather than proceeding without a checkpoint.
-5. Do not start the next phase while this meta-task is `[ ]` or `[~]`.
+Unless the user opts out:
 
-## 9. Finalize Track
-
-After all parent tasks and actionable sub-tasks in the selected track's `plan.md` are marked `[x]`:
-
-- Update the selected track entry in `architect/tracks.md` from `[~]` or `[ ]` to `[x]`.
-- Update `metadata.json` status to `completed` and refresh `updated_at`.
-- Summarize completed work and changed files.
-- Do not commit the completion bookkeeping yet. Keep it for the final implementation commit after documentation synchronization, so the final commit records the complete terminal state including the last checkpoint hash.
-
-## 10. Synchronize Project Documentation
-
-Run this section only after the selected track reaches `[x]` in `architect/tracks.md`.
-
-Announce that you are synchronizing project documentation with the completed track.
-
-Read:
-
-- Track specification: `architect/tracks/<track_id>/spec.md`
-- Product definition: `architect/product.md`
-- Tech stack: `architect/tech-stack.md`
-- Product guidelines: `architect/product-guidelines.md`
-
-Analyze the completed track specification for product behavior changes, technology changes, or product guideline impacts.
-
-### 10.1 Product Definition
-
-Update `architect/product.md` only when the completed track significantly changes the product's user-facing behavior, goals, or capabilities.
-
-If an update is needed in Manual Mode, present the proposed diff in a normal assistant message, then ask for approval with a concise interactive prompt. If an update is needed in Auto Mode, prepare the diff and apply routine product definition updates without approval:
-
-- Title: `Product`
-- Prompt: `Approve the proposed Product Definition updates?`
-- Selection: single
-- Choices: `Approve`, `Reject`.
-
-In Manual Mode, only edit the file after explicit approval. In Auto Mode, apply routine product definition updates without approval, but report the diff in the final summary.
-
-### 10.2 Tech Stack
-
-Update `architect/tech-stack.md` only when the completed track introduced or removed significant technology, framework, infrastructure, persistence, testing, or deployment decisions.
-
-If an update is needed in Manual Mode, present the proposed diff in a normal assistant message, then ask for approval with a concise interactive prompt. If an update is needed in Auto Mode, prepare the diff and apply routine documentation updates only when they describe implementation decisions already made within the selected track:
-
-- Title: `Tech Stack`
-- Prompt: `Approve the proposed Tech Stack updates?`
-- Selection: single
-- Choices: `Approve`, `Reject`.
-
-In Manual Mode, only edit the file after explicit approval. In Auto Mode, apply routine tech stack documentation updates only when they describe implementation decisions already made within the selected track; stop for user approval before significant technology stack changes.
-
-### 10.3 Product Guidelines
-
-Treat `architect/product-guidelines.md` as sensitive. Routine features and bug fixes should not update it.
-
-Propose changes only when the track specification explicitly changes branding, voice, tone, accessibility principles, UX principles, or core product identity.
-
-If an update is needed, present a clear warning and the proposed diff in a normal assistant message, then ask for approval with a concise interactive prompt:
-
-- Title: `Guidelines`
-- Prompt: `Approve these Product Guidelines changes?`
-- Selection: single
-- Choices: `Approve`, `Reject`.
-
-Only edit the file after explicit approval in both Manual Mode and Auto Mode.
-
-### 10.4 Documentation Sync Report
-
-Report which files changed and which did not need updates.
-
-Keep routine documentation changes for the selected track in the final implementation commit. Do not create a separate documentation commit unless the user explicitly requested a separate commit structure.
-
-## 11. Final Implementation Commit
-
-Run this section only after implementation, final track bookkeeping, required verification, and documentation synchronization succeed.
-
-If the user did not explicitly opt out of commits:
-
-1. Re-read the captured worktree baseline and the current status.
-2. Build the final commit candidate from inspected changes owned by the selected track and this implementation workflow. This normally includes remaining implementation files, `architect/tracks.md`, `architect/tracks/<track_id>/plan.md`, `metadata.json`, and approved routine project documentation changes.
-3. Exclude unrelated baseline changes and any ambiguous file or hunk. Use explicit path or hunk staging; never use `git add .` or `git add -A`.
-4. Inspect the staged diff and staged file list, then run `git diff --cached --check`. If staged content is unrelated, incomplete, or ambiguous, unstage only the unsafe candidate content and correct the staging before continuing.
-5. Create the final commit with:
+1. Compare the current worktree with the captured baseline.
+2. Build a candidate from inspected track-owned implementation, registry, plan, metadata, last checkpoint-hash update, and approved routine docs.
+3. Exclude unrelated or ambiguous files and hunks. Never use broad staging.
+4. Inspect staged files and diff; run `git diff --cached --check`; correct unsafe staging before continuing.
+5. Commit:
 
 ```text
 architect(implement): complete track <track_id>
 ```
 
-6. Verify the commit exists and inspect `git status --short`. If any selected-track change remains uncommitted, the workflow is not fully finalized: safely include it in a follow-up track-scoped commit or stop and report why it cannot be isolated. Unrelated baseline changes may remain and must be reported as preserved.
-7. Do not create an empty commit. If the completed terminal state is already contained in `HEAD`, verify that fact and report the existing commit instead.
+6. Verify the commit and `git status --short`.
+7. If selected-track changes remain, include them in a safe follow-up track-scoped commit or stop and explain why isolation is impossible.
+8. Do not create an empty commit; if `HEAD` already contains the complete terminal state, verify and report it.
 
-If the final commit fails, or safe staging is impossible, treat that as a finalization blocker. Do not describe the implementation workflow as fully successful until the scoped commit is verified.
+Unsafe staging or commit failure is a finalization blocker. Do not report full workflow success until the scoped commit is verified. If the user opts out, list remaining track changes and report completion without a final commit.
 
-If the user explicitly opted out of commits, respect that choice, list the remaining selected-track changes, and describe the outcome as completed without a final commit.
+### 12. Track Cleanup
 
-## 12. Track Cleanup
-
-Run cleanup only after implementation and documentation synchronization are complete.
-
-Ask the user what to do with the completed track:
+After finalization, ask:
 
 - Title: `Track Cleanup`
 - Prompt: `Track '<track_id>' is complete. What would you like to do?`
-- Selection: single
-- Choices:
-  - `Review`: Run review before cleanup.
-  - `Archive`: Move the track folder to `architect/archive/` and remove it from `architect/tracks.md`.
-  - `Delete`: Permanently delete the track folder and remove it from `architect/tracks.md`.
-  - `Skip`: Leave the completed track in place.
+- Choices: `Review`, `Archive`, `Delete`, `Skip`
 
-### 12.1 Review
+#### Review
 
-If the user chooses `Review`, tell them:
+Tell the user to run `/architect-review`; do not clean up in this run.
 
-```text
-Please run `/architect-review` to verify changes. You can archive or delete the track after review.
-```
+#### Archive
 
-Do not archive or delete the track during this run after the user chooses `Review`.
+Before explicit confirmation, warn that the full track directory will move, report unexpected files and uncommitted changes, and halt on an existing archive destination. Ask with Title `Confirm Archive`, Prompt `Archive architect/tracks/<track_id>/ to architect/archive/<track_id>/ and remove it from architect/tracks.md?`, and Choices `Yes`, `No`. On `Yes`, perform and verify the move. Commit `architect(cleanup): archive track <track_id>` only when separately authorized.
 
-### 12.2 Archive
+#### Delete
 
-If the user chooses `Archive`:
+Before explicit confirmation, report unexpected or uncommitted contents. Ask with Title `Confirm`, Prompt `WARNING: This permanently deletes architect/tracks/<track_id>/, including spec.md, plan.md, metadata.json, index.md, and any user notes or extra files. This cannot be undone. Type or choose Yes only if you are sure.`, and Choices `Yes`, `No`. On `Yes`, delete it and remove the registry section. Commit `architect(cleanup): delete track <track_id>` only when separately authorized.
 
-1. Warn that this will move the track folder, including `spec.md`, `plan.md`, `metadata.json`, `index.md`, and any user notes or extra files inside it.
-2. Check whether the track folder contains unexpected files beyond `spec.md`, `plan.md`, `metadata.json`, and `index.md`; present those details in a normal assistant message before confirmation if present.
-3. If Git is available, check whether the track folder has uncommitted changes; present that warning in a normal assistant message before confirmation if present.
-4. If `architect/archive/<track_id>/` already exists, halt and ask the user whether to choose a different archive name, delete the existing archive manually, or skip cleanup.
-5. Ask for confirmation before moving files:
-   - Title: `Confirm Archive`
-   - Prompt: `Archive architect/tracks/<track_id>/ to architect/archive/<track_id>/ and remove it from architect/tracks.md?`
-   - Selection: single
-   - Choices: `Yes`, `No`.
-6. If the user does not confirm, leave the track unchanged.
-7. Create `architect/archive/` if needed.
-8. Move `architect/tracks/<track_id>/` to `architect/archive/<track_id>/`.
-9. Remove the completed track section from `architect/tracks.md`.
-10. Announce the archived path.
+#### Skip
 
-If commits are explicitly authorized, commit with:
+Leave the completed track registered.
 
-```text
-architect(cleanup): archive track <track_id>
-```
+## Stop Conditions
 
-Otherwise, do not commit.
+Stop and report the exact state when:
 
-### 12.3 Delete
-
-If the user chooses `Delete`, ask for final confirmation with a warning:
-
-Before asking, check whether the track folder contains unexpected files or uncommitted changes when Git is available, and present those details in the warning message before the concise confirmation prompt.
-
-- Title: `Confirm`
-- Prompt: `WARNING: This permanently deletes architect/tracks/<track_id>/, including spec.md, plan.md, metadata.json, index.md, and any user notes or extra files. This cannot be undone. Type or choose Yes only if you are sure.`
-- Selection: single
-- Choices: `Yes`, `No`.
-
-Only if the user confirms:
-
-1. Delete `architect/tracks/<track_id>/`.
-2. Remove the completed track section from `architect/tracks.md`.
-3. Announce deletion.
-
-If commits are explicitly authorized, commit with:
-
-```text
-architect(cleanup): delete track <track_id>
-```
-
-Otherwise, do not commit.
-
-If the user does not confirm, leave the track unchanged.
-
-### 12.4 Skip
-
-If the user chooses `Skip`, announce that the completed track will remain in `architect/tracks.md`.
+- Required Architect or track context is missing, malformed, or unsafe.
+- No track is selected or reopening is declined.
+- No implementation mode is selected.
+- Worktree ownership is ambiguous where editing or committing is required.
+- A task or phase structure is malformed.
+- Verification remains failing after allowed fix attempts.
+- A significant tech-stack or sensitive-guideline change lacks approval.
+- An Auto Mode checkpoint fails.
+- The final commit cannot be isolated or verified.
+- Cleanup lacks exact confirmation or collides with existing data.
+- An operation remains unsuccessful after one clear correction.
+- The authorized workflow is complete.

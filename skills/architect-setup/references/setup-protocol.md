@@ -1,108 +1,126 @@
 # Architect Setup Protocol
 
-This protocol defines the Architect setup workflow for agent runtimes.
+## Purpose
 
-## 1. System Directive
+Initialize or resume the durable Architect core context under `architect/`. Setup establishes product, guidelines, technology, code-style, workflow, and index context; it does not create proposal or track artifacts.
 
-You are setting up and managing a software project using the Architect methodology. Follow the steps sequentially unless the audit phase identifies a valid resume point.
+## Success Criteria
 
-Validate every operation result. If an operation fails because of a recoverable path or command issue, self-correct once. If it remains unrecoverable, stop, report the failure, and wait for the user.
+Setup succeeds when all core files exist, contain approved project context, and `architect/index.md` links to them:
 
-Use relative project paths such as `architect/product.md` for generated project files. Architect-managed files must stay under `architect/`; never create or follow absolute paths or parent-directory paths (`..`). Do not write files with shell redirection. Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for file creation and edits.
+- `architect/product.md`
+- `architect/product-guidelines.md`
+- `architect/tech-stack.md`
+- At least one direct child `.md` file in `architect/code_styleguides/`
+- `architect/workflow.md`
+- `architect/index.md`
 
-Setup creates only the core project context. Do not create, repair, delete, or modify proposal or track artifacts during setup.
+The completion message identifies whether the project is Greenfield or Brownfield, summarizes created or updated files, and recommends `/architect-discuss` next.
 
-Do not commit changes unless the user explicitly requests a commit in the current conversation.
+## Hard Boundaries
 
-## 2. Pre-Initialization Overview
+- Setup creates core context only. It must not create, repair, delete, or modify track artifacts, including `architect/tracks.md`, `architect/tracks/`, or files inside a track.
+- Keep Architect-managed writes under `architect/`. Reject absolute paths and parent traversal (`..`).
+- Use the runtime's safest reviewable edit mechanism, preferably patch-based. Do not write files with shell redirection.
+- Validate every operation before continuing. Retry once only when the failure has a clear, recoverable path or command correction.
+- Do not commit unless the user explicitly requests a commit in the current conversation.
 
-Present this overview to the user before setup begins:
+These are invariants, not judgment calls. Stop rather than weakening them.
 
-> Welcome to Architect. I will guide you through the following steps to set up your project:
-> 1. **Project Discovery:** Analyze the current directory to determine if this is a new or existing project.
-> 2. **Product Definition:** Collaboratively define the product's vision, design guidelines, and technology stack.
-> 3. **Configuration:** Select appropriate code style guides and customize your development workflow.
-> 4. **Discussion Handoff:** Finish with a ready project context and recommend `architect-discuss` to explore the first product or architecture direction before any tracked proposal work.
->
-> Let's get started.
+## State Model
 
-## 3. Project Audit
+Setup advances through the earliest incomplete state:
 
-Before setup, inspect existing artifacts under `architect/`:
-
-- `product.md`
-- `product-guidelines.md`
-- `tech-stack.md`
-- `code_styleguides/`
-- `workflow.md`
-- `index.md`
-
-Determine the resume target by checking setup prerequisites in order. Do not jump to a later section just because a later artifact exists; if files were manually created out of order or setup was interrupted, resume at the earliest missing prerequisite.
-
-| Earliest Missing or Incomplete State | Target | Announcement |
+| State | Required evidence | Next state |
 | --- | --- | --- |
-| No Architect artifacts exist | Section 4 | No resume announcement |
-| `architect/product.md` is missing or incomplete | Section 5 | "Resuming setup: Product guide is missing or incomplete. Next: create product guide." |
-| `architect/product-guidelines.md` is missing or incomplete | Section 6 | "Resuming setup: Product guide is complete. Next: create product guidelines." |
-| `architect/tech-stack.md` is missing or incomplete | Section 7 | "Resuming setup: Guidelines are complete. Next: define the technology stack." |
-| `architect/code_styleguides/` is missing or empty | Section 8 | "Resuming setup: Tech stack is defined. Next: select code style guides." |
-| `architect/workflow.md` is missing or incomplete | Section 9 | "Resuming setup: Guides and tech stack are configured. Next: define project workflow." |
-| `architect/index.md` is missing or incomplete | Section 10 | "Resuming setup: Workflow is defined. Next: generate project index." |
-| Core context is complete after all prerequisites above are satisfied | Halt | "The project is already initialized. Use `/architect-discuss` to explore the next direction, or `/architect-propose` when a track scope is already confirmed." |
+| `uninitialized` | No Architect core artifacts | `product_ready` |
+| `product_ready` | Complete `product.md` | `guidelines_ready` |
+| `guidelines_ready` | Complete `product-guidelines.md` | `tech_ready` |
+| `tech_ready` | Complete `tech-stack.md` | `guides_ready` |
+| `guides_ready` | Non-empty `code_styleguides/` with a direct child `.md` file | `workflow_ready` |
+| `workflow_ready` | Complete `workflow.md` | `core_ready` after `index.md` is generated |
+| `core_ready` | Every success criterion is satisfied | Terminal; recommend discuss or propose |
 
-Treat a Markdown artifact as incomplete when it is empty or only contains an obvious placeholder from an interrupted write. Treat `architect/code_styleguides/` as complete only when it contains at least one direct child `.md` guide.
+A Markdown file is incomplete when empty or when it contains only an obvious interrupted-write placeholder. Always resume at the earliest missing or incomplete prerequisite, even if later files already exist.
 
-Always run Section 4.1 first to establish Greenfield or Brownfield context before jumping to a later target. Run the Greenfield or Brownfield inception flow only when the audit target is Section 4.
+## Decision Rules
 
-## 4. Project Inception
+### Project maturity
 
-### 4.1 Detect Project Maturity
+- Classify as Brownfield when a primary indicator exists: a dependency manifest (`package.json`, `pom.xml`, `requirements.txt`, `go.mod`, `Cargo.toml`) or application code under `src/`, `app/`, `lib/`, or `bin/`. Uncommitted non-Architect Git changes are supporting evidence.
+- Classify as Greenfield only when no application source or dependency manifest exists, ignoring `architect/`, a new or clean `.git`, and `README.md`.
+- Always classify maturity before resuming. When resuming after project inception, announce the classification and reason, read existing Architect files for context, and do not initialize Git, ask for a new project goal, or perform a broad Brownfield scan without permission.
 
-Classify the project as Brownfield when any primary indicator exists:
+### Resume routing
 
-- Dependency manifests: `package.json`, `pom.xml`, `requirements.txt`, `go.mod`, `Cargo.toml`.
-- Source directories containing code: `src/`, `app/`, `lib/`, `bin/`.
-- A Git repository with uncommitted changes outside `architect/` may be treated as additional Brownfield evidence.
+| Earliest missing state | Resume action |
+| --- | --- |
+| No Architect artifacts | Run project inception |
+| `product.md` | Generate product guide |
+| `product-guidelines.md` | Generate product guidelines |
+| `tech-stack.md` | Define technology stack |
+| `code_styleguides/` | Select code style guides |
+| `workflow.md` | Select project workflow |
+| `index.md` | Generate project index |
+| None | Stop: project already initialized |
 
-Classify as Greenfield only when no application source code or dependency manifests exist, ignoring `architect/`, a clean or newly initialized `.git`, and `README.md`.
+When already initialized, say: `The project is already initialized. Use /architect-discuss to explore the next direction, or /architect-propose when a track scope is already confirmed.`
 
-If the audit target is later than Section 4, announce the maturity and the reason, then jump to that target. Do not initialize Git, ask for a project goal, or run the Brownfield read-only scan. For resume context, read existing Architect files only; ask the user before any broader project scan.
+### Interaction discipline
 
-### 4.2 Brownfield Inception
+- Present full drafts, diffs, and explanations in normal assistant messages.
+- Use the runtime's interaction mechanism only for concise questions and short choices. If structured interaction is unavailable, present the same choices in text and wait.
+- Do not ask for information already established by repository evidence or approved Architect context.
 
-Run this subsection only when the audit target is Section 4 and Brownfield is detected:
+## Approval Boundaries
 
-1. Announce the specific indicator, such as `package.json`.
-2. If Git has uncommitted changes outside `architect/`, warn the user that setup will modify files.
-3. Ask permission for a read-only scan:
+| Action | Required approval |
+| --- | --- |
+| Brownfield repository scan | Explicit `Yes` after the read-only scan prompt |
+| `git init` for Greenfield | Explicit user agreement |
+| Write product guide | Product draft approval |
+| Write product guidelines | Guidelines draft approval |
+| Write or correct tech stack | Tech stack approval |
+| Copy code style guides | User-approved selection |
+| Generate a missing temporary style guide | Explicit approval for that guide |
+| Write customized workflow | Confirmation of workflow choices |
+| Commit setup files | User explicitly requests a commit in the current conversation |
+
+Approval for one row does not authorize another.
+
+## Workflow
+
+### 1. Audit and announce
+
+Inspect the six success-criteria locations, determine the earliest missing state, and classify project maturity. For a new setup, present this compact overview:
+
+1. Discover the project.
+2. Define product context and technology.
+3. Select style guides and workflow.
+4. Finish with core context and hand off to `architect-discuss`.
+
+For a resumed setup, announce the earliest missing artifact and the next action. Do not repeat completed stages.
+
+### 2. Run project inception only for `uninitialized`
+
+#### Brownfield
+
+1. Announce the indicator that established Brownfield status.
+2. Warn when Git has uncommitted changes outside `architect/`.
+3. Ask:
    - Title: `Permission`
    - Prompt: `A brownfield (existing) project has been detected. May I perform a read-only scan to analyze the project?`
    - Choices: `Yes`, `No`
-4. If denied, halt.
-5. If approved, analyze the project:
-   - Read `README.md` first when present.
-   - Respect `.gitignore` when scanning.
-   - Prefer high-value files: manifests, configs, package metadata, small docs, and top-level directory structure.
-   - Do not read large files fully. For files over 1 MB, inspect only enough context to infer purpose.
-6. Infer and retain:
-   - Programming language.
-   - Frontend and backend frameworks.
-   - Database drivers or persistence layer.
-   - Architecture type, such as monorepo, service, MVC, SPA, or library.
-   - Project goal from `README.md` or manifest description.
-7. Proceed to Section 5.
+4. Halt if denied.
+5. If approved, read `README.md` first when present; respect `.gitignore`; prioritize manifests, configs, package metadata, small docs, and top-level structure; sample rather than fully reading files over 1 MB.
+6. Infer language, frameworks, persistence, architecture type, and project goal.
 
-### 4.3 Greenfield Inception
+#### Greenfield
 
-Run this subsection only when the audit target is Section 4 and Greenfield is detected:
-
-1. Announce that no existing application code or dependency manifests were found.
-2. If `.git` does not exist, ask before initializing Git. If the user agrees, run `git init`.
-3. Ask the user:
-   - Title: `Project Goal`
-   - Prompt: `What do you want to build?`
-   - Free-text answer.
-4. Create `architect/product.md` with:
+1. Announce that no application code or dependency manifest was found.
+2. If `.git` is absent, ask before running `git init`.
+3. Ask with Title `Project Goal` and Prompt `What do you want to build?` using free text.
+4. Create or preserve the initial concept at the top of `architect/product.md`:
 
 ```markdown
 # Initial Concept
@@ -110,143 +128,52 @@ Run this subsection only when the audit target is Section 4 and Greenfield is de
 <user response>
 ```
 
-5. Proceed to Section 5.
+### 3. Create the product guide
 
-## 5. Generate Product Guide
+Ask with Title `Product` and Prompt `How would you like to define the product details? Whether you prefer a quick start or a deep dive, both paths lead to a high-quality product guide.` Choices are `Interactive` and `Autogenerate`.
 
-Create or complete `architect/product.md`.
+- Interactive: ask up to four batched questions about users, goals, capabilities, constraints, and success criteria. In Brownfield projects, skip facts already visible in the repository.
+- Autogenerate: draft from the initial goal and approved Brownfield evidence.
 
-1. Announce that you will help create the product guide.
-2. Ask the user to choose a workflow:
-   - Title: `Product`
-   - Prompt: `How would you like to define the product details? Whether you prefer a quick start or a deep dive, both paths lead to a high-quality product guide.`
-   - Choices:
-     - `Interactive`: Guide the user through questions.
-     - `Autogenerate`: Draft from the initial project goal and brownfield analysis when available.
-3. If Interactive, ask up to four batched questions. Use choices with useful suggested answers. Ask about target users, primary goals, key features, and constraints. In Brownfield projects, do not ask for information already present in the codebase.
-4. Draft a polished product guide. Use only the user's selected answers plus already-audited project facts as source material.
-5. Present the full draft in a normal assistant message, then ask for approval with a concise interactive prompt:
-   - Choices: `Approve`, `Suggest changes`.
-6. If the user suggests changes, revise and repeat approval.
-7. Once approved, write the result to `architect/product.md`. If `# Initial Concept` exists, keep it at the top and append the approved Product Guide below it rather than replacing the initial concept.
+Present the full draft, then ask `Approve` or `Suggest changes`. Revise until approved and write `architect/product.md`. Preserve an existing `# Initial Concept` above the guide.
 
-Suggested structure:
+Recommended sections: Vision, Users, Goals, Core Capabilities, Constraints, Success Criteria.
 
-```markdown
-# Product Guide
+### 4. Create product guidelines
 
-## Vision
-## Users
-## Goals
-## Core Capabilities
-## Constraints
-## Success Criteria
-```
+Ask for `Interactive` or `Autogenerate` mode. Interactive mode covers prose style, brand tone, UX principles, accessibility, and design priorities, with at most four batched questions. Brownfield suggestions should reflect existing UI and documentation.
 
-## 6. Generate Product Guidelines
+Present the full draft, revise until approved, then write `architect/product-guidelines.md` with sections for Voice and Tone, UX Principles, Accessibility, Content Rules, Visual Direction, and Quality Bar.
 
-Create `architect/product-guidelines.md`.
+### 5. Define the technology stack
 
-1. Announce the section.
-2. Ask the user to choose:
-   - `Interactive`: Ask about prose style, brand tone, UX principles, accessibility, and design priorities.
-   - `Autogenerate`: Draft standard guidelines from the product guide.
-3. If Interactive, ask up to four batched questions with high-quality suggestions. For Brownfield projects, align suggestions with existing documentation and UI style.
-4. Draft the guidelines.
-5. Present the full draft in a normal assistant message, then ask for approval with a concise interactive prompt.
-6. Revise until approved.
-7. Write `architect/product-guidelines.md`.
+- Greenfield: ask for `Interactive` or `Autogenerate`. Interactive mode may batch up to four questions covering language, frameworks, data, testing, and deployment.
+- Brownfield: document the existing stack without proposing changes. State the inference and ask whether it is correct; if not, request the corrected stack in text.
 
-Suggested structure:
+Present and approve the complete draft before writing `architect/tech-stack.md`. Cover Runtime and Language, Frameworks, Data and Persistence, Testing, Tooling, Deployment, and Constraints and Decisions.
 
-```markdown
-# Product Guidelines
+### 6. Select code style guides
 
-## Voice and Tone
-## UX Principles
-## Accessibility
-## Content Rules
-## Visual Direction
-## Quality Bar
-```
+Enumerate direct Markdown files in the bundled `references/code_styleguides/` directory at runtime so newly bundled guides remain discoverable.
 
-## 7. Generate Tech Stack
+- Greenfield: recommend guides from the approved tech stack, then let the user accept or select manually.
+- Brownfield: recommend guides from the detected stack, then let the user proceed or add more.
 
-Create `architect/tech-stack.md`.
+Copy only approved guides into `architect/code_styleguides/`. When no bundled guide fits, generate a temporary guide only after user approval. Report every missing-guide decision.
 
-### 7.1 Greenfield
+### 7. Select workflow
 
-Ask the user to choose:
+Ask:
 
-- `Interactive`: Pick language, frameworks, data layer, testing, and deployment.
-- `Autogenerate`: Recommend a proven stack for the product goal.
+- Title: `Workflow`
+- Prompt: `Use the default workflow (>80% coverage; commits only when authorized) or customize it?`
+- Choices: `Default`, `Customize`
 
-If Interactive, batch up to four questions. Allow multi-select when combinations are useful.
+For Default, copy bundled `references/workflow.md`, changing only what path consistency requires. For Customize, ask for coverage target, commit frequency, and task-summary location. Present the resulting choices, accept further changes, then write `architect/workflow.md`.
 
-### 7.2 Brownfield
+Workflow text may describe later implementation commits; setup itself still requires explicit commit authorization.
 
-Document the existing stack, do not propose changes.
-
-1. State the inferred stack.
-2. Ask: `Is the inferred tech stack correct?`
-3. If the user says no, ask them to provide the corrected stack in text.
-
-### 7.3 Draft and Write
-
-Draft `architect/tech-stack.md`, present the full content in a normal assistant message, ask for approval with a concise interactive prompt, revise if needed, then write the file.
-
-Suggested structure:
-
-```markdown
-# Technology Stack
-
-## Runtime and Language
-## Frameworks
-## Data and Persistence
-## Testing
-## Tooling
-## Deployment
-## Constraints and Decisions
-```
-
-## 8. Select Code Style Guides
-
-Create `architect/code_styleguides/`, copy selected bundled guides, and optionally generate temporary guides after user approval.
-
-Available bundled guides are the Markdown files in the skill bundled resource directory `references/code_styleguides/`. Enumerate that bundled resource directory at setup time and present matching guide names to the user so newly added guides are automatically available.
-
-For Greenfield projects:
-
-1. Recommend guide(s) based on `architect/tech-stack.md`.
-2. Ask whether to use recommended guides or select manually.
-3. If manual, present available guides in batches with multi-select.
-
-For Brownfield projects:
-
-1. Recommend guide(s) based on the inferred stack.
-2. Ask whether to proceed or add more.
-
-Write approved guides under `architect/code_styleguides/` and include missing guide decisions in the setup summary.
-
-## 9. Select Workflow
-
-Create `architect/workflow.md` from the bundled resource template `references/workflow.md`.
-
-1. Ask the user:
-   - Title: `Workflow`
-   - Prompt: `Use the default workflow (>80% coverage; commits only when authorized) or customize it?`
-   - Choices: `Default`, `Customize`.
-2. If Default, write the bundled workflow unchanged except for any needed Architect path consistency.
-3. If Customize, ask for:
-   - Desired coverage percentage.
-   - Commit frequency.
-   - Where task summaries should be recorded.
-4. Show the resulting workflow choices and ask whether anything else should change.
-5. Write `architect/workflow.md`.
-
-Remember: the skill should not perform commits unless the user explicitly requests them, even if the workflow template describes commit behavior for implementation phases.
-
-## 10. Finalize Project Context
+### 8. Finalize core context
 
 Create `architect/index.md`:
 
@@ -263,23 +190,22 @@ Create `architect/index.md`:
 - [Code Style Guides](./code_styleguides/)
 ```
 
-Then summarize:
+Report maturity, created or updated files, selected guides, and workflow mode. Recommend `/architect-discuss`; mention `/architect-propose` only when scope is already confirmed.
 
-- Files created or updated.
-- Code style guides selected.
-- Workflow mode selected.
-- Whether the setup was Greenfield or Brownfield.
-
-## 11. Completion and Handoff
-
-Announce that Architect setup is complete and the project context is ready for discussion.
-
-Recommend `/architect-discuss` as the next step. Explain that `architect-discuss` clarifies the first product or architecture direction without writing tracked proposal artifacts. When the scope is confirmed, the user can run `/architect-propose` to create the tracked proposal artifacts.
-
-If the user explicitly requested a commit, commit all Architect files with:
+If the user explicitly requests a commit, use:
 
 ```text
 architect(setup): add architect setup files
 ```
 
-Otherwise, tell the user the setup files are ready and that the recommended next step is `/architect-discuss`.
+## Stop Conditions
+
+Stop and report the blocker when:
+
+- Brownfield scan permission is denied.
+- A required path is unsafe or leaves `architect/`.
+- An operation remains unsuccessful after one clear correction.
+- Core context is already complete.
+- The next requested action would create or repair proposal or track artifacts.
+
+On a normal successful stop, do not create tracks and hand off to `/architect-discuss`.

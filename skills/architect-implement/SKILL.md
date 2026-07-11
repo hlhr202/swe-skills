@@ -5,31 +5,24 @@ description: Implement or resume an existing Architect track by executing its ap
 
 # Architect Implement
 
-Use this skill to implement a track that already exists in an initialized Architect project. It executes the selected track's `plan.md` while keeping `architect/tracks.md`, track metadata, and project context synchronized.
+Execute one approved track through implementation, verification, synchronization, finalization, and optional cleanup. Follow `references/implement-track-protocol.md` as the source of truth.
 
-## Core Rules
+## Hard Boundaries
 
-- Follow the bundled resource `references/implement-track-protocol.md` as the source of truth.
-- Use Architect semantics consistently: `architect/`, `/architect-*`, `Architect methodology`, and `architect(...)` commit scopes.
-- Require an initialized Architect context and a valid track before implementation.
-- Use relative paths rooted in the user's project when editing Architect files. Architect-managed files must stay under `architect/`; do not use absolute paths, `..`, or track links outside `architect/tracks/`.
-- Ask the user through the active agent runtime's user-interaction mechanism for decisions and workflow confirmations. If structured choices are unavailable, present the options in text and wait for the user's reply. Manual Mode preserves all human confirmations; Auto Mode bypasses phase-level human confirmations after the user selects it.
-- Present detailed Markdown, drafts, diffs, reports, verification summaries, or risk analysis in a normal assistant message before asking for a decision. Use interactive prompts only for concise plain-text questions and short plain-text choices.
-- Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits. Do not use shell redirection to write files.
-- Validate each operation result before continuing. If a step fails, correct it once when the error is clear; otherwise stop and report the blocker.
-- Treat a request to implement a track as authorization for one final, track-scoped implementation commit after the track and routine documentation sync complete successfully, unless the user explicitly opts out of commits. Auto Mode additionally authorizes phase checkpoint commits; Manual Mode checkpoint commits still require separate authorization.
-- Before editing, capture the existing Git worktree state. Stage only inspected changes that belong to the selected track and this implementation workflow; never sweep in unrelated or ambiguous pre-existing changes. If the final commit cannot be isolated safely, stop and report the blocker instead of committing mixed work.
-- Do not archive or delete track folders unless the user explicitly confirms that cleanup action.
+- Require valid core context and track artifacts; `plan.md` defines scope and `workflow.md` defines lifecycle.
+- Capture the worktree before editing. Never stage or commit unrelated or ambiguous changes, and never use broad staging.
+- Preserve task, phase, Manual/Auto, verification, and documentation approval gates.
+- Never archive or delete without exact confirmation.
 
-## Execution
+## Authorization
 
-1. Read the bundled resource `references/implement-track-protocol.md`.
-2. Verify required Architect context files exist.
-3. Parse `architect/tracks.md` and select the target track.
-4. Load the track's `spec.md`, `plan.md`, `metadata.json`, and `architect/workflow.md`.
-5. Capture the existing Git worktree state, then ask whether to run Manual Mode or Auto Mode.
-6. Execute plan tasks according to the workflow.
-7. Update task, track, registry, and metadata status.
-8. Synchronize project documentation when the track is complete.
-9. Create and verify the final track-scoped implementation commit unless the user opted out.
-10. Offer review/archive/delete/skip cleanup choices safely.
+The implementation request authorizes one final track-scoped commit unless the user opts out. Auto Mode also authorizes phase checkpoint commits. Manual checkpoints, ordinary task commits, cleanup commits, and unrelated commits require separate authorization.
+
+## Run
+
+1. Read `references/implement-track-protocol.md`, validate context, and confirm the target track.
+2. Load track and project context, capture the worktree baseline, and select Manual or Auto Mode.
+3. Execute tasks and phase verification in state order.
+4. Complete track bookkeeping and synchronize approved project documentation.
+5. Create and verify the final track-scoped commit unless opted out.
+6. Offer review, archive, delete, or skip cleanup under the protocol's approval rules.

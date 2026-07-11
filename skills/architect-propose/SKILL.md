@@ -5,27 +5,21 @@ description: Propose and create a new Architect track for an initialized project
 
 # Architect Propose
 
-Use this skill to create a new Architect track for an already initialized Architect project. A track is a focused unit of work, such as a feature, bug fix, chore, refactor, or setup milestone.
+Create one proposal track from approved specification and plan artifacts. Follow `references/propose-track-protocol.md` as the source of truth.
 
-## Core Rules
+## Hard Boundaries
 
-- Follow the bundled resource `references/propose-track-protocol.md` as the source of truth.
-- Use Architect semantics consistently: `architect/`, `/architect-*`, `Architect methodology`, and `architect(...)` commit scopes.
-- Require an initialized Architect context before creating a track.
-- Use relative paths rooted in the user's project when creating Architect files. Architect-managed files must stay under `architect/`; do not use absolute paths, `..`, or track links outside `architect/tracks/`.
-- Ask the user through the active agent runtime's user-interaction mechanism. If structured choices are unavailable, present the options in text and wait for the user's reply.
-- Present detailed Markdown, drafts, diffs, reports, or risk analysis in a normal assistant message before asking for a decision. Use interactive prompts only for concise plain-text questions and short plain-text choices.
-- Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits. Do not use shell redirection to write files.
-- Validate each operation result before continuing. If a step fails, correct it once when the error is clear; otherwise stop and report the blocker.
-- Do not commit unless the user explicitly asks for a commit in the current conversation.
+- Require initialized core Architect context.
+- Do not create a track before both spec and plan approvals.
+- Keep writes and links under safe `architect/` paths.
+- Do not let unrelated track status block an independent proposal; only collisions may block creation.
+- Commit only when explicitly requested in the current conversation.
 
-## Execution
+## Run
 
-1. Read the bundled resource `references/propose-track-protocol.md`.
-2. Verify required Architect context files exist.
-3. Gather or use the track description.
-4. Generate and confirm `spec.md`.
-5. Generate and confirm `plan.md` from `architect/workflow.md`.
-6. Create the track directory and artifacts.
-7. Update `architect/tracks.md`.
-8. Summarize created files and next steps.
+1. Read `references/propose-track-protocol.md` and core project context.
+2. Establish description and inferred track type.
+3. Draft, present, revise, and approve `spec.md`.
+4. Draft, present, revise, and approve `plan.md` from the project workflow.
+5. Recover management paths when needed, generate a safe ID, and run collision checks.
+6. Create artifacts, register the track, and report next steps without starting implementation.

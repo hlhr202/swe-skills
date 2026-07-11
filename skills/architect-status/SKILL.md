@@ -5,23 +5,18 @@ description: Report read-only Architect project status from core context and, wh
 
 # Architect Status
 
-Use this skill to report the current status of an initialized Architect project. It can report projects with core context but no tracks yet, or read `architect/tracks.md` and track plans when proposal artifacts exist. It never modifies files.
+Report best-effort Architect state without changing it. Follow `references/status-protocol.md` as the source of truth.
 
-## Core Rules
+## Hard Boundaries
 
-- Follow the bundled resource `references/status-protocol.md` as the source of truth.
-- Use Architect terminology consistently: `architect/`, `/architect-*`, and `Architect methodology`.
-- This skill is read-only. Do not create, edit, move, delete, archive, or commit files.
-- Architect-managed reads must stay under `architect/`; do not follow absolute paths, `..`, or track links outside `architect/tracks/`.
-- Validate each operation result before continuing. If a read or command fails, correct it once when the error is clear; otherwise stop and report the blocker.
-- Parse registry and plan formats produced by `architect-propose` and `architect-implement`.
+- This skill is strictly read-only: never create, edit, move, delete, archive, or commit.
+- Keep reads under safe `architect/` paths and never resolve malformed track links.
+- Report integrity issues; do not repair them.
 
-## Execution
+## Run
 
-1. Read the bundled resource `references/status-protocol.md`.
-2. Verify required Architect context files exist.
-3. If no track management artifacts exist, report setup-ready status and recommend `/architect-discuss`.
-4. Otherwise parse `architect/tracks.md`.
-5. Read each track's `plan.md` and `metadata.json` when available.
-6. Compute track and project progress.
-7. Report current work, next action, blockers, and completion percentage.
+1. Read `references/status-protocol.md` and verify core context.
+2. Classify missing, partial, or complete track-management state.
+3. Parse safe registry entries, plans, and metadata best-effort.
+4. Compute progress, current work, next action, blockers, and precedence-based project status.
+5. Return the concise report and stop without mutations or interactive cleanup prompts.
