@@ -12,6 +12,7 @@ Execute one approved track through implementation, verification, synchronization
 - Require valid core context and track artifacts; `plan.md` defines scope and `workflow.md` defines lifecycle.
 - Capture the worktree before editing. Never stage or commit unrelated or ambiguous changes, and never use broad staging.
 - Preserve task, phase, Manual/Auto, verification, and documentation approval gates.
+- In Auto Mode, continue until finalization; task size and unfinished phases are not reasons to stop or send a final response.
 - Never archive or delete without exact confirmation.
 
 ## Authorization

@@ -124,6 +124,7 @@ Classify baseline changes against the track spec and plan as related, unrelated,
 
 - Manual Mode preserves every human confirmation in the workflow.
 - Auto Mode bypasses phase-level human confirmation only; it performs or safely substitutes verification and creates required phase checkpoint commits.
+- In Auto Mode, continue until finalization; task size and unfinished phases are not stop conditions.
 - Both modes stop at safety boundaries and unrecoverable failures.
 
 ## Approval Boundaries

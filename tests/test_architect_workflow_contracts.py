@@ -10,6 +10,18 @@ def read(relative_path: str) -> str:
 
 
 class ArchitectImplementContractTests(unittest.TestCase):
+    def test_auto_mode_does_not_stop_for_task_size_or_unfinished_phases(self) -> None:
+        paths = (
+            "skills/architect-implement/SKILL.md",
+            "skills/architect-implement/references/implement-track-protocol.md",
+        )
+
+        for path in paths:
+            with self.subTest(path=path):
+                content = read(path)
+                self.assertIn("continue until finalization", content)
+                self.assertIn("task size and unfinished phases", content)
+
     def test_final_commit_is_required_in_skill_protocol_and_project_template(self) -> None:
         paths = (
             "skills/architect-implement/SKILL.md",
