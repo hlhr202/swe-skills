@@ -1,84 +1,84 @@
 # Project Workflow
 
-## Guiding Principles
+## Outcome
 
-1. **The Plan is the Source of Truth:** All work must be tracked in `plan.md`.
-2. **The Tech Stack is Deliberate:** Changes to the tech stack must be documented in `tech-stack.md` before implementation.
-3. **Test-Driven Development:** Write unit tests before implementing functionality.
-4. **High Code Coverage:** Aim for >80% code coverage for all modules.
-5. **User Experience First:** Every decision should prioritize user experience.
-6. **Non-Interactive and CI-Aware:** Prefer non-interactive commands. Use `CI=true` for watch-mode tools so tests and linters run once.
+Complete each approved track through traceable task states, test-first implementation, phase verification, project-context synchronization, and a verified track-scoped terminal commit.
 
-## Task Workflow
+## Engineering Principles
 
-All tasks follow a strict lifecycle.
+- `plan.md` is the source of truth for implementation scope and progress.
+- Document significant technology decisions in `tech-stack.md` before implementing them.
+- Use TDD: establish failing tests, implement the minimum passing behavior, then refactor safely.
+- Target more than 80% coverage for new code.
+- Prioritize user experience and project conventions.
+- Prefer non-interactive, CI-safe commands; use `CI=true` for watch-mode tools.
 
-### Implementation Modes
+## Hard Boundaries
 
-`/architect-implement` asks for an implementation mode after loading track context and before marking the track in progress.
+- Preserve state order: `[ ] -> [~] -> [x]`.
+- Do not skip phase verification or start a later phase while an earlier phase gate is incomplete.
+- Do not make significant stack changes without approval.
+- Never stage or commit unrelated or ambiguous changes. Never use `git add .` or `git add -A`.
+- Cleanup, archive, delete, and unrelated commits are outside implementation authorization.
 
-- **Manual Mode:** Preserve all human confirmation steps. Phase completion waits for user feedback before proceeding. Phase checkpoint and ordinary task commits require explicit authorization, but a successful implementation still ends with the final track-scoped commit authorized by the implementation request unless the user opts out.
-- **Auto Mode:** Run the full `plan.md` without phase-level human confirmation. The agent must perform phase verification itself using tests, coverage, browser automation, command-line checks, API checks, or code inspection where appropriate. Auto Mode authorizes phase checkpoint commits in addition to the final track-scoped commit. It does not authorize ordinary task commits, cleanup, archive, delete, or unrelated commits.
+## Implementation Modes
 
-Auto Mode still stops for unrecoverable blockers, failed verification after the allowed fix attempts, significant technology stack changes, destructive cleanup, or sensitive product guideline changes.
+Select a mode after loading track context and before marking the track active.
 
-### Standard Task Workflow
+| Mode | Phase confirmation | Checkpoint commits | Final commit |
+| --- | --- | --- | --- |
+| Manual | Wait for user feedback | Require separate authorization | Authorized by implementation request unless user opts out |
+| Auto | Agent performs or substitutes verification | Authorized by Auto Mode | Authorized by implementation request unless user opts out |
 
-1. **Select Task:** Choose the next available task from `plan.md` in sequential order.
-2. **Mark In Progress:** Before beginning work, edit `plan.md` and change the task from `[ ]` to `[~]`.
-3. **Write Failing Tests (Red Phase):** Create tests that define the expected behavior and confirm they fail before implementation.
-4. **Implement to Pass Tests (Green Phase):** Write the minimum application code required to pass the failing tests.
-5. **Refactor:** Improve clarity, remove duplication, and rerun tests without changing behavior.
-6. **Verify Coverage:** Run the project's coverage command and target >80% coverage for new code.
-7. **Document Deviations:** If implementation requires a significant tech stack change, stop and get user approval before updating `tech-stack.md`. After approval, add a dated note and resume.
-8. **Commit Code Changes:** Stage task-related changes and commit with a clear message only when the user has explicitly authorized commits for the current implementation workflow. Auto Mode only authorizes phase checkpoint commits, not ordinary task commits.
-9. **Attach Task Summary:** Record a task summary using the configured summary mechanism. If no commit is created, add an indented sub-item beneath the completed task in `plan.md` using `    - Summary: <summary>`.
-10. **Record Task Completion:** Update `plan.md` from `[~]` to `[x]`. Append the short commit hash when a commit exists; otherwise append `no-commit`.
-11. **Commit Plan Update:** Commit the `plan.md` update only when the user has explicitly authorized commits for the current implementation workflow. Auto Mode only authorizes phase checkpoint commits, not ordinary plan update commits.
+Auto Mode still stops for unrecoverable blockers, persistent verification failure, significant stack changes, destructive cleanup, or sensitive product-guideline changes.
 
-### Phase Completion Verification and Checkpointing Protocol
+## Standard Task Workflow
 
-This protocol runs immediately after a task completes a phase in `plan.md`.
+For one parent task at a time:
 
-1. **Announce Protocol Start:** Inform the user that the phase is complete and verification has begun.
-2. **Ensure Test Coverage for Phase Changes:** Identify changed code files for the phase, verify corresponding tests exist, and create missing tests using the repository's existing testing style.
-3. **Execute Automated Tests:** Announce the exact command, run it, and debug failures. Attempt at most two fix cycles before asking the user for guidance.
-4. **Generate Manual Verification:** Generate step-by-step manual verification instructions based on `product.md`, `product-guidelines.md`, and `plan.md`.
-5. **Manual Mode Feedback:** In Manual Mode, ask the user to confirm whether the manual verification meets expectations before proceeding.
-6. **Auto Mode Verification:** In Auto Mode, do not wait for phase-level human feedback. Execute the generated verification steps directly when feasible. If a step cannot be executed directly, perform the closest safe automated substitute and record the limitation in the task summary.
-7. **Create Checkpoint Commit:** In Auto Mode, stage phase-related changes and create a phase checkpoint commit. In Manual Mode, create the checkpoint commit only when the user has explicitly authorized commits for the current implementation workflow. Use commit message format `architect(checkpoint): complete phase <phase_name>`.
-8. **Record Checkpoint Hash:** When a checkpoint commit is created, record its hash in `plan.md` only after the commit succeeds. The `plan.md` line that records the checkpoint hash cannot be included in the same checkpoint commit because the hash does not exist until after that commit is created; it remains a follow-up Architect status update for the next authorized commit or final track update.
+1. Select the first `[~]` task, otherwise the next `[ ]` task in plan order.
+2. Persist `[ ] -> [~]` before implementation changes.
+3. Write tests that define expected behavior and confirm the Red phase when feasible.
+4. Implement the minimum Green-phase change.
+5. Refactor without changing behavior and rerun tests.
+6. Run relevant coverage and target more than 80% for new code.
+7. Stop for approval before a significant tech-stack change; after approval, update `tech-stack.md` with a dated decision.
+8. Create an ordinary task commit only when explicitly authorized for this workflow. Auto Mode does not authorize ordinary task commits.
+9. Record the configured task summary. Without a commit, add `    - Summary: <summary>` beneath the task.
+10. Persist `[~] -> [x]`; append the short commit SHA or `no-commit`.
+11. Commit the plan update only when explicitly authorized. Auto Mode does not authorize ordinary plan commits.
 
-### Final Track Commit
+## Phase Completion Verification and Checkpointing Protocol
 
-After all tasks, final verification, track bookkeeping, and routine documentation synchronization succeed, create one final track-scoped commit unless the user explicitly opted out of commits.
+Run immediately when the last non-meta task in a phase completes:
 
-1. Capture the worktree state before implementation and compare it with the final state.
-2. Stage only inspected files or hunks owned by the selected track and this workflow. Never use `git add .` or `git add -A`; preserve unrelated pre-existing changes.
+1. Announce verification start.
+2. Identify phase-changed code and ensure corresponding tests exist in project style.
+3. Announce and run automated tests or coverage. Attempt at most two fix cycles before requesting guidance.
+4. Generate manual verification steps from `product.md`, `product-guidelines.md`, and the phase tasks.
+5. Manual Mode: present the steps and wait for explicit confirmation.
+6. Auto Mode: execute feasible steps directly; use the closest safe automated substitute and record any limitation.
+7. Create `architect(checkpoint): complete phase <phase_name>` in Auto Mode, or in Manual Mode when checkpoint commits are explicitly authorized.
+8. Record the checkpoint SHA only after the commit succeeds. The hash line belongs to a later authorized or final commit because the hash cannot exist inside its own checkpoint.
+
+## Final Track Commit
+
+After all tasks, verification, bookkeeping, and routine documentation synchronization succeed, create one final track-scoped commit unless the user explicitly opts out.
+
+1. Compare the final worktree with the implementation baseline.
+2. Stage only inspected files or hunks owned by the track and workflow.
 3. Inspect the staged diff and run `git diff --cached --check`.
-4. Commit with `architect(implement): complete track <track_id>`.
-5. Verify the commit and confirm that no selected-track changes remain uncommitted. Treat unsafe staging or commit failure as a finalization blocker rather than reporting full success.
+4. Commit `architect(implement): complete track <track_id>`.
+5. Verify the commit and confirm no selected-track changes remain uncommitted.
 
-The implementation request authorizes this final commit in Manual and Auto modes. It does not authorize unrelated changes or cleanup commits. If the user opts out, report the selected-track changes that remain uncommitted.
+Unsafe staging or commit failure is a finalization blocker. The implementation request authorizes this final commit in Manual and Auto modes, but never unrelated changes or cleanup commits. If the user opts out, report the remaining selected-track changes.
 
-## Manual Verification Examples
+## Manual Verification Shape
 
-For a frontend change:
-
-```markdown
-The automated tests have passed. For manual verification, please follow these steps:
-
-1. Start the development server with `npm run dev`.
-2. Open your browser to `http://localhost:3000`.
-3. Confirm that the new user-facing behavior appears as expected.
-```
-
-For a backend change:
+Use concrete steps appropriate to the affected surface. Name the command or entry point, the action to perform, and the expected result. For example:
 
 ```markdown
-The automated tests have passed. For manual verification, please follow these steps:
-
-1. Ensure the server is running.
-2. Execute the documented API request.
-3. Confirm that the response status and body match the acceptance criteria.
+1. Start the relevant application or service with `<command>`.
+2. Exercise `<changed behavior>` through `<UI, API, or workflow>`.
+3. Confirm `<observable result>` matches the acceptance criteria.
 ```

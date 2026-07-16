@@ -38,20 +38,23 @@ flowchart TD
     TechStackApproval -->|Yes| WriteTechStack[Write tech-stack.md]
     WriteTechStack --> StyleReady
     StyleReady -->|No| StyleAsk[Ask code style guide selections]
-    StyleReady -->|Yes| WorkflowReady{Workflow and index complete?}
+    StyleReady -->|Yes| WorkflowReady{Workflow complete?}
     StyleAsk --> WriteStyle[Copy approved code style guides]
     WriteStyle --> WorkflowReady
     WorkflowReady -->|No| WorkflowAsk[Ask default or customized workflow]
-    WorkflowReady -->|Yes| Summary[Summarize core context and recommend architect-discuss]
+    WorkflowReady -->|Yes| IndexReady{Index complete?}
     WorkflowAsk --> WorkflowConfirm{User confirms workflow choices?}
     WorkflowConfirm -->|Change| WorkflowAsk
-    WorkflowConfirm -->|Confirmed| Scaffolding[Create workflow.md and index.md]
-    Scaffolding --> Summary
-    Summary --> CommitAsk{Did user explicitly request a commit?}
-    CommitAsk -->|Yes| Commit[Commit Architect setup files]
-    CommitAsk -->|No| End([Setup complete; next recommended step is architect-discuss])
+    WorkflowConfirm -->|Confirmed| WriteWorkflow[Create workflow.md]
+    WriteWorkflow --> IndexReady
+    IndexReady -->|No| WriteIndex[Create index.md]
+    IndexReady -->|Yes| Summary[Summarize core context and recommend architect-discuss]
+    WriteIndex --> Summary
+    Summary --> CommitRequested{Did user explicitly request a commit?}
+    CommitRequested -->|Yes| Commit[Commit Architect setup files]
+    CommitRequested -->|No| End([Setup complete; next recommended step is architect-discuss])
     Commit --> End
 
-    class ScanPermission,GitGoal,ProductMode,ProductApproval,GuidelinesMode,GuidelinesApproval,TechStackAsk,TechStackApproval,StyleAsk,WorkflowAsk,WorkflowConfirm,CommitAsk human;
+    class ScanPermission,GitGoal,ProductMode,ProductApproval,GuidelinesMode,GuidelinesApproval,TechStackAsk,TechStackApproval,StyleAsk,WorkflowAsk,WorkflowConfirm human;
     classDef human fill:#fff3cd,stroke:#f0ad4e,stroke-width:2px,color:#111;
 ```

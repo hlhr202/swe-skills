@@ -1,202 +1,165 @@
 # Architect Status Protocol
 
-This protocol provides a read-only status overview of an Architect project. It can report a freshly initialized project before any tracks exist, and it parses `architect/tracks.md` plus each registered track's `plan.md` when track management artifacts exist.
+## Purpose
 
-## 1. System Directive
+Report the current Architect project state from core context, the track registry, plans, and metadata. Status supports both freshly initialized projects with no tracks and tracked projects with incomplete or inconsistent bookkeeping.
 
-You are reporting Architect project status. Read project files, parse progress, and present a concise status report. Do not modify files, move files, delete files, archive tracks, or commit changes.
+## Success Criteria
 
-Validate every operation result. If a read or command fails because of a recoverable path issue, self-correct once. If it remains unrecoverable, stop, report the failure, and wait for the user.
+Produce a concise, evidence-based report that identifies:
 
-Use relative project paths such as `architect/tracks.md` and `architect/tracks/<track_id>/plan.md`. Architect-managed reads must stay under `architect/`; never follow absolute paths, parent-directory paths (`..`), or track links outside `architect/tracks/`.
+- Overall project status and progress.
+- Track totals and per-track progress.
+- Current track, phase, and task.
+- Next action.
+- Active and possible blockers.
+- Missing, malformed, duplicate, or inconsistent Architect artifacts.
 
-## 2. Setup Check
+## Hard Boundaries
 
-Verify that Architect core context is initialized before reporting project status.
+- Status is strictly read-only. Never create, edit, move, delete, archive, or commit files.
+- Keep Architect-managed reads under `architect/`. Reject absolute paths, parent traversal (`..`), invalid track IDs, and links outside `architect/tracks/`.
+- Do not repair inconsistencies discovered during reporting.
+- Validate reads and commands. Retry once only for a clear, recoverable path issue; otherwise stop and report the limitation.
 
-Required core setup files. If any of these are missing, status cannot run:
+## State Model
 
-- `architect/product.md`
-- `architect/product-guidelines.md`
-- `architect/tech-stack.md`
-- `architect/workflow.md`
-- `architect/index.md`
+### Artifact state
 
-Optional proposal context. Missing proposal artifacts do not mean the core Architect context is incomplete:
+| State | Evidence | Result |
+| --- | --- | --- |
+| `not_initialized` | Any required core file missing | Halt and recommend `/architect-setup` |
+| `core_ready` | Core files exist; neither track artifact exists | Report setup-ready, no tracks |
+| `partial_management` | Exactly one of `tracks.md` or `tracks/` exists | `Needs Attention`; parse only when possible |
+| `tracked` | Both management artifacts exist | Parse registry, plans, and metadata |
 
-- `architect/tracks.md`
-- `architect/tracks/`
+Required core files are `product.md`, `product-guidelines.md`, `tech-stack.md`, `workflow.md`, and `index.md` under `architect/`.
 
-If exactly one of `architect/tracks.md` or `architect/tracks/` exists, report `Needs Attention` because track management state is partial. Do not create or repair files.
+### Project status precedence
 
-If any required setup file is missing, halt and tell the user:
+Apply the first matching state:
 
-```text
-Architect is not set up. Please run `/architect-setup` to set up the environment.
-```
+1. `Needs Attention`: malformed or duplicate registry entries, missing plans, multiple `[~]` registry tracks, registry/plan active-track mismatches, missing index, invalid metadata, or metadata mismatches.
+2. `Blocked`: an active blocker exists and no higher-priority condition applies.
+3. `Complete`: every parsed track and counted task unit is complete.
+4. `In Progress`: any track or counted unit is active, or completed and pending units coexist.
+5. `Not Started`: no counted unit is active or complete.
 
-## 3. Read Tracks Registry
+## Decision Rules
 
-If both `architect/tracks.md` and `architect/tracks/` are missing, report:
+### Registry parsing
 
-```text
-Architect is set up, but no tracks have been created yet. Recommended next action: run `/architect-discuss` to explore the next direction, then `/architect-propose` when the scope is confirmed.
-```
-
-Then stop. Do not treat this as an error or setup failure.
-
-If `architect/tracks.md` is missing but `architect/tracks/` exists, report `Needs Attention` with a note that the tracks directory exists without a registry. Recommend inspecting the directory or running `/architect-propose` only when it is safe to create or recover the registry. Then stop because no registry can be parsed.
-
-If `architect/tracks.md` exists but `architect/tracks/` is missing, parse the registry when possible, but report `Needs Attention` and note that registered track links cannot be resolved until the tracks directory is restored.
-
-Read `architect/tracks.md` and parse entries separated by `---`.
-
-For each track section, support the Architect registry format:
+Parse sections separated by `---` in this format:
 
 ```markdown
 - [ ] **Track: <Track Description>**
   *Link: [./tracks/<track_id>/](./tracks/<track_id>/)*
 ```
 
-For each track, extract:
+Extract one marker (`[ ]`, `[~]`, `[x]`), description, folder link, and track ID. A valid ID matches `^[0-9]{8}_[a-z0-9_]+$`.
 
-- Status marker: `[ ]`, `[~]`, or `[x]`.
-- Track description.
-- Track folder link when present.
-- Track ID from the folder link when present.
+- Report duplicate IDs, missing fields, invalid IDs, and unsafe links in Notes.
+- Resolve only `./tracks/<track_id>/` or equivalent `architect/tracks/<track_id>/` links.
+- If no valid entries exist, report `No tracks found in architect/tracks.md.` and stop.
 
-Track IDs parsed from the registry must match `^[0-9]{8}_[a-z0-9_]+$`. Treat entries with invalid IDs as malformed and do not resolve their directories.
+### Track reading
 
-Validate registry structure:
+For each safe registered track, read `plan.md` and `metadata.json` when present. Missing or invalid track files affect that track and project status; they do not abort the remaining report.
 
-- A valid track should have one status marker, one track description, one folder link, and one track ID.
-- Duplicate track IDs are status issues.
-- Track sections missing a folder link or track ID, or using an invalid track ID, are malformed and should be reported in Notes.
+Metadata alignment:
 
-If no valid track entries are found, report:
+| Registry | Metadata |
+| --- | --- |
+| `[ ]` | `new` |
+| `[~]` | `in_progress` |
+| `[x]` | `completed` |
 
-```text
-No tracks found in architect/tracks.md.
-```
+### Plan parsing and counting
 
-Then stop.
+- A phase is a Markdown heading beginning with `##`.
+- A parent task is a non-indented checkbox task line such as `- [ ] Task: ...`, `- [~] Task: ...`, or `- [x] Task: ...`.
+- An actionable sub-task is an indented checkbox line.
+- Ignore plain bullets, summaries, notes, prose, and links.
+- If a parent has actionable sub-tasks, count only those sub-tasks as progress units.
+- If it has none, count the parent as one unit.
+- Never count both a parent and its actionable sub-tasks in the percentage.
+- Completion percentage is `completed / total * 100`; report `0%` and explain when total is zero.
 
-## 4. Read Track Plans
+Markers mean pending `[ ]`, in progress `[~]`, and complete `[x]`.
 
-For each registered track with a folder link:
+### Current work and next action
 
-1. Resolve the track directory only when the parsed `track_id` matches `^[0-9]{8}_[a-z0-9_]+$` and the registry link is `./tracks/<track_id>/` or the equivalent `architect/tracks/<track_id>/`. If the link is absolute, contains `..`, has an invalid track ID, or points outside `architect/tracks/`, report the track as malformed and do not read it.
-2. Read `plan.md` when present.
-3. Read `metadata.json` when present.
-4. If `plan.md` is missing, include the track in the report with `plan missing` status instead of failing the entire status report.
-5. If `metadata.json` is missing, invalid, or inconsistent with the registry marker, include that in Notes.
+- Current track: the only registry `[~]` track; otherwise the first track whose plan contains `[~]` work.
+- Current phase and task: the phase and first `[~]` counted unit.
+- If multiple registry tracks are `[~]`, list all and mark `Needs Attention`.
+- Next action: first `[~]` actionable sub-task; otherwise the first pending sub-task under the active parent; otherwise the first pending counted unit in registry order; otherwise `No pending tasks`.
 
-Do not require every track to be complete or well-formed. Status should be best-effort and should call out missing or malformed track files.
+### Blockers
 
-Metadata consistency rules:
+- Active blockers are explicit markers such as `[BLOCKED] ...`, `Blocked: <reason>`, `Blocker: <reason>`, or an active task explicitly marked blocked.
+- General prose containing `blocker`, `blocked`, or `blocking` is only a possible blocker and belongs in Notes.
 
-- Registry `[ ]` should match metadata status `new`.
-- Registry `[~]` should match metadata status `in_progress`.
-- Registry `[x]` should match metadata status `completed`.
-- Missing, invalid, or mismatched metadata is a status issue and should be reported in Notes.
+## Approval Boundaries
 
-## 5. Parse Track Plans
+Status has no approval-gated mutation because it has no mutation capability.
 
-For each `plan.md`, parse:
+- Do not ask for permission to perform ordinary safe reads required by the report.
+- Do not turn a status request into cleanup or repair.
+- If the user later requests repairs, that is a separate workflow and authorization decision.
 
-- Phases: markdown headings beginning with `##`.
-- Parent tasks: non-indented checkbox task lines such as `- [ ] Task: ...`, `- [~] Task: ...`, and `- [x] Task: ...`.
-- Actionable sub-tasks: indented checkbox lines using `[ ]`, `[~]`, or `[x]`.
-- Active blockers: lines that clearly indicate blocked work, such as `[BLOCKED] ...`, `Blocked: <reason>`, `Blocker: <reason>`, or an unchecked/current task explicitly marked blocked.
-- Possible blockers: weak matches such as general prose containing `blocker`, `blocked`, or `blocking` that do not clearly identify active blocked work.
-- Summaries: non-actionable summary lines should not count as tasks.
+## Workflow
 
-Status marker meanings:
+1. Verify core setup files.
+2. Inspect presence of `architect/tracks.md` and `architect/tracks/`.
+3. When neither exists, report setup-ready status and recommend `/architect-discuss`, followed by `/architect-propose` after scope confirmation.
+4. When only `tracks/` exists, report `Needs Attention`, recommend inspecting the directory or using `/architect-propose` only when safe recovery is intended, and stop because no registry can be parsed.
+5. When only `tracks.md` exists, report `Needs Attention` and parse it best-effort without resolving missing directories.
+6. When both exist, parse and validate registry entries.
+7. Read each safe track's plan and metadata.
+8. Compute track, phase, task, blocker, and percentage results.
+9. Apply project-status precedence.
+10. Return the report without modifying files.
 
-- `[ ]`: pending.
-- `[~]`: in progress.
-- `[x]`: completed.
-
-Ignore plain bullets, notes, summaries, explanatory text, and links when counting tasks.
-
-## 6. Compute Status
-
-Compute per-track and overall totals:
-
-- Track count by registry status: pending, in progress, completed.
-- Phase count.
-- Parent task count.
-- Actionable sub-task count.
-- Completed tasks.
-- In-progress tasks.
-- Pending tasks.
-- Completion percentage: `completed / total * 100` using counted task units. If `total` is `0`, report `0%` and note that no counted task units were found.
-
-Count task progress with these rules:
-
-- If a parent task has actionable sub-tasks, count only those sub-tasks as progress units.
-- If a parent task has no actionable sub-tasks, count the parent task as one progress unit.
-- Do not count both a parent task and its actionable sub-tasks in the completion percentage.
-- Parent task count and actionable sub-task count may still be reported as separate supporting metrics.
-
-Determine current work:
-
-- Current track: the only `[~]` registry track when exactly one exists, otherwise the first track whose plan has `[~]` tasks.
-- Current phase: phase containing the first `[~]` parent task or actionable sub-task.
-- Current task: first `[~]` parent task or actionable sub-task.
-
-If multiple registry tracks are `[~]`, list all active tracks in Current Work and report the condition in Notes. Do not silently ignore additional active tracks.
-
-If multiple track plans contain `[~]` parent tasks or actionable sub-tasks while the registry does not show the same active tracks as `[~]`, report the registry/plan mismatch in Notes and treat it as `Needs Attention`.
-
-Determine next action:
-
-- First `[~]` actionable sub-task in registry order, if any.
-- Otherwise, first `[ ]` actionable sub-task under the current `[~]` parent task, if any.
-- Otherwise, first `[ ]` counted task unit in registry order.
-- If no pending work exists, report `No pending tasks`.
-
-Determine project status with this precedence:
-
-1. `Needs Attention`: missing plans, malformed registry entries, duplicate track IDs, multiple `[~]` registry tracks, registry/plan active-track mismatches, missing `architect/index.md`, invalid metadata, or metadata mismatches are detected.
-2. `Blocked`: active blockers exist and no `Needs Attention` condition is present.
-3. `Complete`: all parsed tracks are `[x]`, all counted task units are `[x]`, and no higher-priority condition is present.
-4. `In Progress`: any track, parent task, or counted task unit is `[~]`, or completed counted task units coexist with pending counted task units, and no higher-priority condition is present.
-5. `Not Started`: no completed or in-progress counted task units exist and no higher-priority condition is present.
-
-Report possible blockers in Notes unless they also meet the active blocker rules.
-
-## 7. Present Status Overview
-
-Report status in this format:
+Use this output shape:
 
 ```markdown
 # Architect Status
 
 ## Summary
 - **Timestamp**: <current timestamp>
-- **Project Status**: <Blocked|In Progress|Complete|Not Started|Needs Attention>
+- **Project Status**: <Needs Attention|Blocked|Complete|In Progress|Not Started>
 - **Progress**: <completed>/<total> tasks (<percentage>%)
 - **Tracks**: <completed>/<total> completed, <in-progress> in progress, <pending> pending
 - **Phases**: <total phases>
-- **Task Units**: <counted task units>; <parent task count> parent tasks, <actionable sub-task count> actionable sub-tasks
+- **Task Units**: <units>; <parent count> parent tasks, <sub-task count> actionable sub-tasks
 
 ## Current Work
-- **Current Track**: <track description, active track list, or none>
+- **Current Track**: <track, active list, or none>
 - **Current Phase**: <phase or none>
 - **Current Task**: <task or none>
 
 ## Next Action
-- <next pending task or no pending tasks>
+- <next action>
 
 ## Blockers
-- <blocker lines or `None detected`>
+- <active blockers or `None detected`>
 
 ## Track Details
 - `<marker>` <track_id or unknown>: <description> — <completed>/<total> task units (<percentage>%)
 
 ## Notes
-- <missing plans, malformed entries, duplicate track IDs, multiple active tracks, registry/plan mismatches, inconsistent metadata, possible blockers, or status limitations>
+- <integrity issues, possible blockers, or limitations>
 ```
 
-Keep the report concise. Include details only when they help the user decide the next action.
+## Stop Conditions
+
+Stop after reporting when:
+
+- Core setup is incomplete.
+- No track management artifacts exist.
+- `tracks/` exists without a registry.
+- The registry contains no valid tracks.
+- A read remains unavailable after one clear correction.
+- The report is complete.
+
+Never convert a stop condition into a write or repair action.

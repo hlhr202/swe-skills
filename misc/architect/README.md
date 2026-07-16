@@ -11,6 +11,17 @@ Architect is a structured workflow for turning product context into track-based 
 - `architect/tracks.md`: Registry of active and completed tracks, created by `architect-propose` when the first confirmed track is proposed.
 - `architect/tracks/<track_id>/`: One track's `spec.md`, `plan.md`, `metadata.json`, and `index.md`, created by `architect-propose`.
 
+## Protocol Semantics
+
+Each Architect protocol separates four kinds of instruction so workflow behavior remains explicit:
+
+- **Hard Boundaries:** Invariants that no workflow state or inferred intent may override.
+- **State Model:** Legal artifact and task states, plus their transition order.
+- **Decision Rules:** Evidence-based routing for automatic progress, clarification, fallback, or stopping.
+- **Approval Boundaries:** The exact user action that authorizes a side effect such as writing, committing, archiving, or deleting.
+
+Protocol files are the runtime source of truth. Flow charts summarize them and must not introduce extra gates or side effects.
+
 ## Workflow Summary
 
 ```mermaid

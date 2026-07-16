@@ -1,22 +1,51 @@
 # Architect Propose Track Protocol
 
-This protocol creates a new Architect track for a project that has already run Architect setup.
+## Purpose
 
-## 1. System Directive
+Turn a confirmed initiative into a new Architect track with an approved specification, approved implementation plan, metadata, index, and registry entry.
 
-You are creating a new Architect track. Guide the user from a short track description to confirmed `spec.md` and `plan.md`, then create the track artifacts under `architect/tracks/<track_id>/` and update `architect/tracks.md`.
+## Success Criteria
 
-Validate every operation result. If an operation fails because of a recoverable path or command issue, self-correct once. If it remains unrecoverable, stop, report the failure, and wait for the user.
+A proposal succeeds when:
 
-Use relative project paths such as `architect/tracks.md` and `architect/tracks/<track_id>/spec.md`. Architect-managed files must stay under `architect/`; never create or follow absolute paths, parent-directory paths (`..`), or track links outside `architect/tracks/`. Do not write files with shell redirection. Use the active agent runtime's safest reviewable file-editing mechanism, preferably patch-based, for manual file creation and edits.
+- Required Architect core context exists.
+- The user has approved `spec.md` and then `plan.md`.
+- A safe, collision-free track ID is used consistently.
+- `spec.md`, `plan.md`, `metadata.json`, and `index.md` exist under one track directory.
+- `architect/tracks.md` contains exactly one matching registry entry.
+- `architect/index.md` links to track management artifacts.
+- The completion message lists created or updated files and the next action.
 
-Do not commit changes unless the user explicitly requests a commit in the current conversation.
+## Hard Boundaries
 
-## 2. Setup Check
+- Require initialized Architect core context before proposal work.
+- Do not create track artifacts before both the specification and plan are approved.
+- Keep Architect-managed writes under `architect/`. Reject absolute paths, parent traversal (`..`), and track links outside `architect/tracks/`.
+- Do not inspect unrelated tracks for completeness or block a new independent proposal because another track is unfinished. Only ID or short-name collision may block creation.
+- Use a reviewable edit mechanism, preferably patch-based. Do not write files with shell redirection.
+- Validate every operation. Retry once only for a clear, recoverable error; otherwise stop.
+- Do not commit unless the user explicitly requests a commit in the current conversation.
 
-Verify that Architect is initialized before creating a track.
+## State Model
 
-Required setup files:
+The proposal state machine is:
+
+```text
+context_ready -> spec_draft -> spec_approved -> plan_draft -> plan_approved -> track_created -> registered
+```
+
+- `spec_approved` is reached only after the `Confirm Spec` approval.
+- `plan_approved` is reached only after the `Confirm Plan` approval.
+- `track_created` may occur only after `plan_approved` and a successful collision check.
+- `registered` is the terminal proposal state.
+
+Track metadata begins in state `new`; the registry marker begins as `[ ]`.
+
+## Decision Rules
+
+### Setup
+
+Required core files:
 
 - `architect/product.md`
 - `architect/product-guidelines.md`
@@ -24,78 +53,61 @@ Required setup files:
 - `architect/workflow.md`
 - `architect/index.md`
 
-Recoverable management artifacts:
+Missing `architect/tracks.md` or `architect/tracks/` is recoverable during artifact creation. Missing core context is not: halt and recommend `/architect-setup`.
 
-- `architect/tracks.md`
-- `architect/tracks/`
+### Description and type
 
-If any required setup file is missing, halt and tell the user:
+- Use a description already supplied by the user.
+- Otherwise ask with Title `Description` and Prompt `Please provide a brief description of the track you want to start.`, offering 2–3 examples and custom text.
+- If the user selects a generic example, ask one follow-up for specifics.
+- Infer type without asking unless type materially changes the plan.
+- Supported types: `feature`, `bug`, `chore`, `refactor`, `docs`, `test`. Default to `feature` when unclear.
 
-```text
-Architect is not set up. Please run `/architect-setup` to set up the environment.
-```
+### Questions
 
-Do not proceed to track creation when setup is incomplete.
+- Ask only questions that change scope, behavior, constraints, validation, or definition of done.
+- Use additive multi-select for combinable scope, users, requirements, surfaces, and acceptance criteria.
+- Use single choice for mutually exclusive decisions.
+- Use free text for reproduction steps or constraints that do not fit predefined choices.
+- Do not ask for facts already established by Architect context.
 
-If recoverable management artifacts are missing but required setup files exist, recreate them during Section 7.1.
+### Track ID
 
-Do not inspect or evaluate unrelated existing track folders for status or completeness before proposing a new track. Existing tracks, including incomplete or completed-but-unarchived tracks, must not block creation of a new independent track. Only the collision check in Section 7.2 may halt creation based on existing tracks.
+Generate `YYYYMMDD_shortname` from the approved description. Lowercase the short name, keep ASCII letters and numbers, replace spaces with underscores, strip punctuation, and retain at most four meaningful words. The result must match `^[0-9]{8}_[a-z0-9_]+$`.
 
-## 3. Load Project Context
+Before writing track artifacts, check both `architect/tracks/` and `architect/tracks.md` for:
 
-Read and use the existing Architect context:
+- The same full track ID.
+- The same short name after the date prefix.
+- A registry mention of the same ID or short name.
 
-- Product definition: `architect/product.md`
-- Product guidelines: `architect/product-guidelines.md`
-- Tech stack: `architect/tech-stack.md`
-- Workflow: `architect/workflow.md`
-- Tracks registry when present: `architect/tracks.md`
+Any collision halts creation and suggests a different description or resuming the existing track.
 
-Use this context to ask relevant questions and avoid asking for information already documented.
+## Approval Boundaries
 
-## 4. Get Track Description and Infer Type
+| Action | Required approval |
+| --- | --- |
+| Use specification for planning | `Confirm Spec` → `Approve` |
+| Create artifacts from plan | `Confirm Plan` → `Approve` |
+| Commit proposal artifacts | User explicitly requests a commit in the current conversation |
 
-If the user already supplied a track description in the prompt, use it.
+Approval of the spec does not approve the plan. Approval of both documents authorizes creating the listed proposal artifacts, not implementation, cleanup, or unrelated changes.
 
-If no description was supplied, ask the user for it through the active agent runtime's user-interaction mechanism. Provide 2-3 common examples as inspiration, but prefer the user's custom answer as the actual description:
+## Workflow
 
-- Title: `Description`
-- Prompt: `Please provide a brief description of the track you want to start.`
-- Choices such as `Implement user authentication`, `Fix a production bug`, and `Refactor a core module`.
+### 1. Verify and load context
 
-If the user chooses an example rather than a custom answer, ask one follow-up question for specifics before inferring type or drafting the spec.
+Verify core files, then read product, product guidelines, tech stack, workflow, and the registry when present.
 
-Infer the track type from the description. Do not ask the user to classify it unless the description is ambiguous and the type changes planning materially.
+### 2. Establish the track
 
-Supported types:
+Gather the description and infer its supported type using the decision rules above.
 
-- `feature`
-- `bug`
-- `chore`
-- `refactor`
-- `docs`
-- `test`
+### 3. Draft and approve `spec.md`
 
-Default to `feature` when the type is unclear.
+Ask context-aware questions. Feature tracks normally cover behavior, users, inputs and outputs, affected UI or APIs, and success criteria. Bug tracks cover reproduction, actual and expected behavior, environment, and severity. Other types cover scope, constraints, affected modules, validation, and definition of done.
 
-## 5. Generate `spec.md`
-
-Announce that you will gather details for the track specification.
-
-Ask context-aware questions through the active agent runtime's user-interaction mechanism. Batch up to four related questions when structured interaction is available. Prefer choice questions with 2-4 strong options and allow custom input when useful.
-
-Questioning rules:
-
-- Use additive multi-select questions for scope, user groups, requirements, affected surfaces, and acceptance criteria.
-- Use single-choice questions for mutually exclusive decisions.
-- Allow custom text for reproduction steps, constraints, and custom acceptance criteria when predefined choices would be too restrictive.
-- For feature tracks, ask about intended behavior, users, inputs/outputs, impacted UI or APIs, and success criteria.
-- For bug tracks, ask about reproduction steps, actual behavior, expected behavior, affected environment, and severity.
-- For chores/refactors/docs/tests, ask about scope, constraints, affected files or modules, validation, and definition of done.
-
-Before drafting, summarize your understanding briefly, then draft. Do not add a separate approval step before the specification approval loop unless a required decision is missing.
-
-Draft `spec.md` with this structure:
+Briefly summarize the stable understanding, then present the full draft. Use this default structure:
 
 ```markdown
 # Specification: <Track Description>
@@ -109,80 +121,44 @@ Draft `spec.md` with this structure:
 ## Risks and Assumptions
 ```
 
-For bug tracks, include these sections instead when more appropriate:
+For bugs, replace Goals, Requirements, and Non-Functional Requirements with Reproduction, Actual Behavior, and Expected Behavior when that is clearer.
 
-```markdown
-# Specification: <Track Description>
-
-## Overview
-## Reproduction
-## Actual Behavior
-## Expected Behavior
-## Acceptance Criteria
-## Out of Scope
-## Risks and Assumptions
-```
-
-Present the full `spec.md` draft in a normal assistant message first. Then ask for approval with a concise interactive prompt:
+Ask:
 
 - Title: `Confirm Spec`
 - Prompt: `Is this specification ready to use for planning?`
-- Selection: single
-- Choices:
-  - `Approve`: The specification is correct; proceed to planning.
-  - `Revise`: The specification needs changes.
+- Choices: `Approve`, `Revise`
 
-If the user chooses `Revise`, ask for the requested changes, update the draft, and repeat approval.
+On `Revise`, gather changes, update the full draft, and repeat. Do not add another approval gate before this loop.
 
-## 6. Generate `plan.md`
+### 4. Draft and approve `plan.md`
 
-After `spec.md` is approved, generate an implementation plan from the approved spec and `architect/workflow.md`.
+After `spec_approved`, derive the plan from the approved spec and `architect/workflow.md`.
 
-Plan rules:
-
-- Use phases, tasks, and sub-tasks.
-- Include status markers `[ ]` for every task and sub-task.
-- Parent task format: `- [ ] Task: ...`
-- Sub-task format: `    - [ ] ...`
-- Follow the workflow. If it uses TDD, include test-writing before implementation work.
-- If `architect/workflow.md` defines a Phase Completion Verification and Checkpointing Protocol, append this meta-task to every phase:
-  - `- [ ] Task: Architect - User Manual Verification '<Phase Name>' (Protocol in workflow.md)`
-
-Recommended structure:
+- Use phases, parent tasks, and sub-tasks.
+- Mark every actionable line `[ ]`.
+- Format parents as `- [ ] Task: ...` and sub-tasks as `    - [ ] ...`.
+- Follow workflow ordering, including tests before implementation when TDD is configured.
+- When the workflow defines Phase Completion Verification and Checkpointing, end every phase with:
 
 ```markdown
-# Implementation Plan: <Track Description>
-
-## Phase 1: <Phase Name>
-- [ ] Task: <task>
-    - [ ] <sub-task>
-    - [ ] <sub-task>
 - [ ] Task: Architect - User Manual Verification '<Phase Name>' (Protocol in workflow.md)
 ```
 
-Present the full `plan.md` draft in a normal assistant message first. Then ask for approval with a concise interactive prompt:
+Present the complete plan, then ask:
 
 - Title: `Confirm Plan`
 - Prompt: `Is this implementation plan ready to create track artifacts?`
-- Selection: single
-- Choices:
-  - `Approve`: The plan is correct; create the track artifacts.
-  - `Revise`: The plan needs changes.
+- Choices: `Approve`, `Revise`
 
-If the user chooses `Revise`, ask for the requested changes, update the draft, and repeat approval.
+On `Revise`, update the plan and repeat.
 
-## 7. Create Track Artifacts
+### 5. Recover management paths and check collision
 
-### 7.1 Resolve Track Paths
+After `plan_approved`:
 
-Use these fixed Architect management paths:
-
-- Tracks registry: `architect/tracks.md`
-- Tracks directory: `architect/tracks/`
-
-Create `architect/tracks/` if it does not exist and the setup context is otherwise valid.
-
-If `architect/tracks.md` is missing but setup context is otherwise valid, create it with:
+1. Create `architect/tracks/` if missing.
+2. If `architect/tracks.md` is missing, create:
 
 ```markdown
 # Project Tracks
@@ -190,32 +166,13 @@ If `architect/tracks.md` is missing but setup context is otherwise valid, create
 This file tracks all major tracks for the project. Each track has its own detailed plan in its respective folder.
 ```
 
-After creating or recovering `architect/tracks.md`, ensure `architect/index.md` links to it under `## Management`. If `## Management` is missing, create that section before adding the links:
+3. Ensure `architect/index.md` contains a `## Management` section linking to `./tracks.md` and `./tracks/`.
+4. Generate and validate one track ID.
+5. Run the complete collision check.
 
-```markdown
-- [Tracks Registry](./tracks.md)
-- [Tracks Directory](./tracks/)
-```
+### 6. Create artifacts
 
-### 7.2 Generate Track ID
-
-Generate one track ID from the approved description with format `YYYYMMDD_shortname`.
-
-Build `shortname` by lowercasing the description, keeping ASCII letters and numbers, replacing spaces with underscores, stripping punctuation, and using at most four meaningful words. The final `track_id` must match `^[0-9]{8}_[a-z0-9_]+$`.
-
-Before creating any track artifacts, run a collision check against both `architect/tracks/` and `architect/tracks.md`:
-
-- Existing track directories must not contain the same track ID.
-- Existing track directories must not contain the same short name after the date prefix.
-- The tracks registry must not already mention the same track ID or short name.
-
-If any collision exists, halt and explain that a matching track already exists. Suggest choosing a different description or resuming the existing track.
-
-Use the exact same track ID for every artifact.
-
-### 7.3 Metadata
-
-Create `architect/tracks/<track_id>/metadata.json`:
+Create `architect/tracks/<track_id>/` with the approved `spec.md`, approved `plan.md`, and:
 
 ```json
 {
@@ -228,19 +185,9 @@ Create `architect/tracks/<track_id>/metadata.json`:
 }
 ```
 
-Use the current timestamp for `created_at` and `updated_at`.
-Use the inferred supported type from Section 4 for `type`.
+Use the current timestamp for both initial timestamp fields.
 
-### 7.4 Files
-
-Create these files in `architect/tracks/<track_id>/`:
-
-- `spec.md`: confirmed specification.
-- `plan.md`: confirmed implementation plan.
-- `metadata.json`: track metadata.
-- `index.md`: track index.
-
-`index.md` content:
+Create `index.md`:
 
 ```markdown
 # Track <track_id> Context
@@ -250,9 +197,9 @@ Create these files in `architect/tracks/<track_id>/`:
 - [Metadata](./metadata.json)
 ```
 
-## 8. Update Tracks Registry
+### 7. Register and finish
 
-Append the new track to `architect/tracks.md`:
+Append only after collision checks pass:
 
 ```markdown
 
@@ -262,22 +209,25 @@ Append the new track to `architect/tracks.md`:
   *Link: [./tracks/<track_id>/](./tracks/<track_id>/)*
 ```
 
-Do not append unless the Section 7.2 collision check passed.
+Announce that the track was created and can be implemented with `/architect-implement`. List created or updated files.
 
-## 9. Completion
-
-Announce completion:
-
-```text
-New track '<track_id>' has been created and added to architect/tracks.md. You can now start implementation by running `/architect-implement`.
-```
-
-Summarize created or updated files.
-
-If the user explicitly requested a commit, commit Architect files with:
+If the user explicitly requests a commit, use:
 
 ```text
 architect(propose): add track <track_id>
 ```
 
-Otherwise, do not commit. In the completion summary, explicitly state that the track files were created but not committed because commit authorization was not given in the current conversation. Offer that the user can request a commit with `architect(propose): add track <track_id>` if they want the planning artifacts recorded in Git.
+Otherwise state that the proposal artifacts were not committed because commit authorization was not given, and mention the optional commit message.
+
+## Stop Conditions
+
+Stop without partial track creation when:
+
+- Required core context is missing.
+- A required decision prevents a stable specification or plan.
+- The user does not approve the specification or plan.
+- The generated path or registry link is unsafe.
+- A track ID or short-name collision exists.
+- An operation remains unsuccessful after one clear correction.
+
+Do not proceed from proposal into implementation automatically.

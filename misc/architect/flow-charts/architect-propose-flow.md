@@ -6,9 +6,9 @@ flowchart TD
     Load --> SetupCheck[Verify required Architect setup files]
     SetupCheck -->|Missing required file| NotSetup[Halt and ask user to run architect-setup]
     SetupCheck -->|Required files exist| MgmtCheck{tracks.md or tracks/ missing?}
-    MgmtCheck -->|Yes| RecoverMgmt[Recover management artifacts]
+    MgmtCheck -->|Yes| RememberMgmt[Record management recovery needed after approvals]
     MgmtCheck -->|No| LoadContext[Read product, guidelines, tech stack, workflow, and tracks registry]
-    RecoverMgmt --> LoadContext
+    RememberMgmt --> LoadContext
     LoadContext --> Description{Track description supplied?}
     Description -->|No| AskDescription[Ask for track description]
     Description -->|Yes| InferType[Infer track type]
@@ -20,11 +20,11 @@ flowchart TD
     SpecQuestions --> DraftSpec[Draft spec.md]
     DraftSpec --> ConfirmSpec{User approves spec?}
     ConfirmSpec -->|Revise| SpecQuestions
-    ConfirmSpec -->|Approve| PlanQuestions[Ask planning and validation questions]
-    PlanQuestions --> DraftPlan[Draft plan.md from workflow.md]
+    ConfirmSpec -->|Approve| DraftPlan[Draft plan.md from approved spec and workflow.md]
     DraftPlan --> ConfirmPlan{User approves plan?}
-    ConfirmPlan -->|Revise| PlanQuestions
-    ConfirmPlan -->|Approve| TrackID[Generate track ID]
+    ConfirmPlan -->|Revise| DraftPlan
+    ConfirmPlan -->|Approve| RecoverMgmt[Recover missing management artifacts]
+    RecoverMgmt --> TrackID[Generate track ID]
     TrackID --> Collision[Check tracks/ and tracks.md for ID or shortname collisions]
     Collision -->|Collision found| CollisionHalt[Halt and suggest different description or existing track]
     Collision -->|No collision| CreateFiles[Create spec, plan, metadata, and index files]
@@ -34,6 +34,6 @@ flowchart TD
     CommitAsk -->|No| Summary[Summarize created files, state no commit was made without explicit authorization, and offer optional commit]
     Commit --> Summary
 
-    class AskDescription,AskSpecifics,SpecQuestions,ConfirmSpec,PlanQuestions,ConfirmPlan,CommitAsk human;
+    class AskDescription,AskSpecifics,SpecQuestions,ConfirmSpec,ConfirmPlan human;
     classDef human fill:#fff3cd,stroke:#f0ad4e,stroke-width:2px,color:#111;
 ```
