@@ -72,6 +72,19 @@ class ArchitectBoundaryTests(unittest.TestCase):
         self.assertIn("collision", content.lower())
         self.assertIn("explicitly requests a commit", content)
 
+    def test_propose_asks_for_task_status_granularity(self) -> None:
+        content = read(PROTOCOLS["propose"])
+        self.assertIn("Title: `Task Status`", content)
+        self.assertIn(
+            "At what level should Architect track implementation status in this plan?",
+            content,
+        )
+        self.assertIn("`Sub-task (Default)`", content)
+        self.assertIn("`Task`", content)
+        self.assertIn("> Task status granularity: `<task|sub-task>`", content)
+        self.assertIn("Always format parent tasks as `- [ ] Task: ...`", content)
+        self.assertIn("format sub-task details as `    - ...` without checkboxes", content)
+
     def test_status_is_strictly_read_only(self) -> None:
         content = read(PROTOCOLS["status"])
         self.assertIn("strictly read-only", content)
@@ -112,7 +125,18 @@ class ArchitectStateMachineTests(unittest.TestCase):
             with self.subTest(state=state):
                 self.assertIn(state, content)
         self.assertIn("count only those sub-tasks", content)
+        self.assertIn("count only parent tasks", content)
+        self.assertIn("defaults to `sub-task`", content)
         self.assertIn("completed / total * 100", content)
+
+    def test_implement_supports_both_task_status_granularities(self) -> None:
+        content = read(PROTOCOLS["implement"])
+        self.assertIn("defaults to `sub-task`", content)
+        self.assertIn("Task granularity", content)
+        self.assertIn("Sub-task granularity", content)
+        self.assertIn("required implementation details", content)
+        self.assertIn("do not add or update sub-task checkboxes", content)
+        self.assertIn("conflicts with its declaration and is malformed", content)
 
 
 class ArchitectApprovalTests(unittest.TestCase):
@@ -150,11 +174,18 @@ class ArchitectDocumentationSyncTests(unittest.TestCase):
         flow = read("misc/architect/flow-charts/architect-propose-flow.md")
         self.assertLess(flow.index("ConfirmPlan -->|Approve| RecoverMgmt"), flow.index("RecoverMgmt --> TrackID"))
         self.assertNotIn("PlanQuestions", flow)
+        self.assertIn("ConfirmSpec -->|Approve| TaskStatus", flow)
+        self.assertIn("TaskStatus -->|Sub-task default| DraftPlan", flow)
 
     def test_implement_flow_preserves_track_confirmation_and_reopen_gate(self) -> None:
         flow = read("misc/architect/flow-charts/architect-implement-flow.md")
         self.assertIn("ConfirmTrack{User confirms matched track?}", flow)
         self.assertIn("ReopenConfirm{User explicitly confirms reopening?}", flow)
+        self.assertIn("MarkParent --> MetaTask", flow)
+        self.assertIn("UnitKind -->|Sub-task| MarkSub", flow)
+        self.assertIn("UnitKind -->|All checkbox sub-tasks complete| CompleteParent", flow)
+        self.assertIn("CompleteSub --> MoreSubs", flow)
+        self.assertIn("MoreSubs -->|No| CompleteParent", flow)
 
     def test_setup_flow_generates_missing_index_after_workflow(self) -> None:
         flow = read("misc/architect/flow-charts/architect-setup-flow.md")

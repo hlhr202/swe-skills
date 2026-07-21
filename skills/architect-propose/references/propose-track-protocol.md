@@ -31,10 +31,11 @@ A proposal succeeds when:
 The proposal state machine is:
 
 ```text
-context_ready -> spec_draft -> spec_approved -> plan_draft -> plan_approved -> track_created -> registered
+context_ready -> spec_draft -> spec_approved -> granularity_selected -> plan_draft -> plan_approved -> track_created -> registered
 ```
 
 - `spec_approved` is reached only after the `Confirm Spec` approval.
+- `granularity_selected` is reached after the task-status question is answered or the user accepts the default.
 - `plan_approved` is reached only after the `Confirm Plan` approval.
 - `track_created` may occur only after `plan_approved` and a successful collision check.
 - `registered` is the terminal proposal state.
@@ -70,6 +71,24 @@ Missing `architect/tracks.md` or `architect/tracks/` is recoverable during artif
 - Use single choice for mutually exclusive decisions.
 - Use free text for reproduction steps or constraints that do not fit predefined choices.
 - Do not ask for facts already established by Architect context.
+
+### Task status granularity
+
+After the specification is approved and before drafting the plan, always ask:
+
+- Title: `Task Status`
+- Prompt: `At what level should Architect track implementation status in this plan?`
+- Choices:
+  - `Sub-task (Default)`: parent tasks and actionable sub-tasks use checkboxes; each sub-task is a minimum state-sync unit.
+  - `Task`: only parent tasks use checkboxes; nested sub-task details are completed as part of the parent without separate state updates.
+
+Use `sub-task` when the user requests the default or expresses no preference. This preserves existing behavior. Record the selection near the top of `plan.md` using exactly:
+
+```markdown
+> Task status granularity: `<task|sub-task>`
+```
+
+Downstream workflows interpret an older plan without this declaration as `sub-task` for backward compatibility.
 
 ### Track ID
 
@@ -133,11 +152,13 @@ On `Revise`, gather changes, update the full draft, and repeat. Do not add anoth
 
 ### 4. Draft and approve `plan.md`
 
-After `spec_approved`, derive the plan from the approved spec and `architect/workflow.md`.
+After `spec_approved`, ask the task-status question, then derive the plan from the approved spec and `architect/workflow.md`.
 
-- Use phases, parent tasks, and sub-tasks.
-- Mark every actionable line `[ ]`.
-- Format parents as `- [ ] Task: ...` and sub-tasks as `    - [ ] ...`.
+- Put the selected `Task status granularity` declaration near the top of the plan.
+- Use phases, parent tasks, and nested sub-task details.
+- Always format parent tasks as `- [ ] Task: ...`.
+- For `sub-task` granularity, format actionable sub-tasks as `    - [ ] ...`; every state-managed line starts `[ ]`.
+- For `task` granularity, format sub-task details as `    - ...` without checkboxes; the parent task is the minimum state-sync unit.
 - Follow workflow ordering, including tests before implementation when TDD is configured.
 - When the workflow defines Phase Completion Verification and Checkpointing, end every phase with:
 

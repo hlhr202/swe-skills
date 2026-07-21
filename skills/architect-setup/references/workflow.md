@@ -32,21 +32,32 @@ Select a mode after loading track context and before marking the track active.
 
 Auto Mode still stops for unrecoverable blockers, persistent verification failure, significant stack changes, destructive cleanup, or sensitive product-guideline changes.
 
+## Task Status Granularity
+
+Each generated `plan.md` records a `Task status granularity` declaration with the value `task` or `sub-task` near the top.
+
+- `task`: the parent task is the minimum state-sync unit. Nested plain bullets are required implementation details and do not receive separate checkbox updates.
+- `sub-task`: actionable nested checkbox items are the minimum state-sync units, while their parent task also records aggregate state.
+
+An older plan without a Task status granularity declaration defaults to `sub-task` for backward compatibility.
+
 ## Standard Task Workflow
 
 For one parent task at a time:
 
-1. Select the first `[~]` task, otherwise the next `[ ]` task in plan order.
-2. Persist `[ ] -> [~]` before implementation changes.
-3. Write tests that define expected behavior and confirm the Red phase when feasible.
-4. Implement the minimum Green-phase change.
-5. Refactor without changing behavior and rerun tests.
-6. Run relevant coverage and target more than 80% for new code.
-7. Stop for approval before a significant tech-stack change; after approval, update `tech-stack.md` with a dated decision.
-8. Create an ordinary task commit only when explicitly authorized for this workflow. Auto Mode does not authorize ordinary task commits.
-9. Record the configured task summary. Without a commit, add `    - Summary: <summary>` beneath the task.
-10. Persist `[~] -> [x]`; append the short commit SHA or `no-commit`.
-11. Commit the plan update only when explicitly authorized. Auto Mode does not authorize ordinary plan commits.
+1. Select the first `[~]` parent task, otherwise the next `[ ]` parent task in plan order.
+2. Persist the parent `[ ] -> [~]` before implementation changes.
+3. For `sub-task` granularity, resume the first `[~]` actionable sub-task or select the next `[ ]` sub-task and persist its active state. For `task` granularity, execute all nested details within the parent without separate state updates.
+4. Write tests that define expected behavior and confirm the Red phase when feasible.
+5. Implement the minimum Green-phase change for the selected status unit.
+6. Refactor without changing behavior and rerun tests.
+7. Run relevant coverage and target more than 80% for new code.
+8. Stop for approval before a significant tech-stack change; after approval, update `tech-stack.md` with a dated decision.
+9. Complete each selected sub-task state when using `sub-task` granularity, then repeat until the parent work is complete.
+10. Create an ordinary task commit only when explicitly authorized for this workflow. Auto Mode does not authorize ordinary task commits.
+11. Record the configured parent-task summary. Without a commit, add `    - Summary: <summary>` beneath the parent task.
+12. Persist the parent `[~] -> [x]`; append the short commit SHA or `no-commit`.
+13. Commit the plan update only when explicitly authorized. Auto Mode does not authorize ordinary plan commits.
 
 ## Phase Completion Verification and Checkpointing Protocol
 

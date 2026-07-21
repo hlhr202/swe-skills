@@ -19,22 +19,33 @@ flowchart TD
     ReopenConfirm -->|Yes| Resolve
     Resolve --> TrackFiles[Read spec.md, plan.md, metadata.json, workflow, product, guidelines, and tech stack]
     TrackFiles -->|Missing track file| HaltIncomplete[Halt and suggest setup recovery or track inspection]
-    TrackFiles -->|Ready| GitBaseline[Capture and classify existing worktree changes]
+    TrackFiles -->|Ready| Granularity[Resolve task or sub-task status granularity; default legacy plans to sub-task]
+    Granularity --> GitBaseline[Capture and classify existing worktree changes]
     GitBaseline --> ModeAsk[Ask implementation mode]
     ModeAsk -->|Manual| MarkTrack[Mark track and metadata in progress]
     ModeAsk -->|Auto| MarkTrack
     MarkTrack --> TaskLoop[Select next in-progress or pending plan task]
     TaskLoop --> NoWork{Any unfinished task remains?}
     NoWork -->|No| Finalize[Mark track completed and update metadata]
-    NoWork -->|Yes| MarkTask[Mark task or sub-task in progress]
-    MarkTask --> MetaTask{Is this the phase protocol meta-task?}
+    NoWork -->|Yes| MarkParent[Mark the parent task in progress]
+    MarkParent --> MetaTask{Is this the phase protocol meta-task?}
     MetaTask -->|Yes| PhaseProtocol[Run phase verification and checkpoint protocol]
-    MetaTask -->|No| Execute[Implement smallest correct change using project conventions]
+    MetaTask -->|No| UnitKind{Task unit or actionable sub-task?}
+    UnitKind -->|Task or no checkbox sub-tasks| Execute[Implement the parent and all required nested details]
+    UnitKind -->|Sub-task| MarkSub[Mark the next sub-task in progress]
+    UnitKind -->|All checkbox sub-tasks complete| CompleteParent
+    MarkSub --> ExecuteSub[Implement the smallest correct sub-task change]
+    ExecuteSub --> Verify[Run workflow-required tests, coverage, docs, and checks]
     Execute --> Verify[Run workflow-required tests, coverage, docs, and checks]
     Verify -->|Failures beyond allowed attempts| AskGuidance[Ask user for guidance]
-    AskGuidance --> Execute
-    Verify -->|Pass| CompleteTask[Mark task complete and record summary or commit hash]
-    CompleteTask --> PhaseDone{Did this complete a phase?}
+    AskGuidance --> UnitKind
+    Verify -->|Pass| CompleteUnit{Which unit was executed?}
+    CompleteUnit -->|Parent task| CompleteParent[Mark parent complete and record summary or commit hash]
+    CompleteUnit -->|Sub-task| CompleteSub[Mark sub-task complete]
+    CompleteSub --> MoreSubs{More unfinished sub-tasks in this parent?}
+    MoreSubs -->|Yes| UnitKind
+    MoreSubs -->|No| CompleteParent
+    CompleteParent --> PhaseDone{Did this complete a phase?}
     PhaseDone -->|No| TaskLoop
     PhaseDone -->|Yes| WorkflowPhaseProtocol{Workflow defines phase completion protocol and no meta-task exists?}
     WorkflowPhaseProtocol -->|No| TaskLoop
@@ -48,7 +59,7 @@ flowchart TD
     CheckpointAsk -->|Yes| CheckpointCommit[Create architect checkpoint commit]
     CheckpointAsk -->|No| MarkMetaDone[Mark protocol meta-task done or record skipped checkpoint]
     ModeCheck -->|Auto| AutoVerify[Agent executes or substitutes manual verification]
-    AutoVerify -->|Failures beyond allowed attempts| AskGuidance
+    AutoVerify -->|Failures beyond allowed attempts| PhaseGuidance
     AutoVerify -->|Pass| CheckpointCommit
     CheckpointCommit --> RecordCheckpointHash[Record checkpoint hash in plan.md after commit]
     RecordCheckpointHash --> MarkMetaDone

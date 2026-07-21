@@ -20,7 +20,9 @@ flowchart TD
     SpecQuestions --> DraftSpec[Draft spec.md]
     DraftSpec --> ConfirmSpec{User approves spec?}
     ConfirmSpec -->|Revise| SpecQuestions
-    ConfirmSpec -->|Approve| DraftPlan[Draft plan.md from approved spec and workflow.md]
+    ConfirmSpec -->|Approve| TaskStatus{Task status granularity?}
+    TaskStatus -->|Sub-task default| DraftPlan[Draft plan.md from approved spec and workflow.md]
+    TaskStatus -->|Task| DraftPlan
     DraftPlan --> ConfirmPlan{User approves plan?}
     ConfirmPlan -->|Revise| DraftPlan
     ConfirmPlan -->|Approve| RecoverMgmt[Recover missing management artifacts]
@@ -34,6 +36,6 @@ flowchart TD
     CommitAsk -->|No| Summary[Summarize created files, state no commit was made without explicit authorization, and offer optional commit]
     Commit --> Summary
 
-    class AskDescription,AskSpecifics,SpecQuestions,ConfirmSpec,ConfirmPlan human;
+    class AskDescription,AskSpecifics,SpecQuestions,ConfirmSpec,TaskStatus,ConfirmPlan human;
     classDef human fill:#fff3cd,stroke:#f0ad4e,stroke-width:2px,color:#111;
 ```
