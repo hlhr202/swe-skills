@@ -15,8 +15,9 @@ flowchart TD
     PartialNoDirectory --> ParseRegistry
     ParseRegistry --> ValidateRegistry[Validate markers, links, track IDs, and duplicate IDs]
     ValidateRegistry --> ReadTracks[Read each safe track plan and metadata]
-    ReadTracks --> ValidateMetadata[Validate metadata consistency]
-    ValidateMetadata --> Count[Count tracks, phases, parent tasks, actionable sub-tasks, and task states]
+    ReadTracks --> Granularity[Resolve each plan's task status granularity; default legacy plans to sub-task]
+    Granularity --> ValidateMetadata[Validate metadata consistency]
+    ValidateMetadata --> Count[Count tracks, phases, and units selected by each plan's granularity]
     Count --> Percent{Any counted task units?}
     Percent -->|Yes| ComputePercent[Compute completed divided by total]
     Percent -->|No| ZeroPercent[Report 0 percent and note no counted task units]

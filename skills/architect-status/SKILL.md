@@ -17,6 +17,6 @@ Report best-effort Architect state without changing it. Follow `references/statu
 
 1. Read `references/status-protocol.md` and verify core context.
 2. Classify missing, partial, or complete track-management state.
-3. Parse safe registry entries, plans, and metadata best-effort.
+3. Parse safe registry entries, plan task-status granularity, and metadata best-effort.
 4. Compute progress, current work, next action, blockers, and precedence-based project status.
 5. Return the concise report and stop without mutations or interactive cleanup prompts.

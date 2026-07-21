@@ -10,6 +10,37 @@ def read(relative_path: str) -> str:
 
 
 class ArchitectImplementContractTests(unittest.TestCase):
+    def test_task_status_granularity_is_consistent_across_workflows(self) -> None:
+        paths = (
+            "skills/architect-propose/references/propose-track-protocol.md",
+            "skills/architect-implement/references/implement-track-protocol.md",
+            "skills/architect-status/references/status-protocol.md",
+            "skills/architect-setup/references/workflow.md",
+        )
+
+        for path in paths:
+            with self.subTest(path=path):
+                content = read(path)
+                self.assertIn("Task status granularity", content)
+                self.assertIn("sub-task", content)
+
+        propose = read(paths[0])
+        implement = read(paths[1])
+        status = read(paths[2])
+        self.assertIn("only parent tasks use checkboxes", propose)
+        self.assertIn("without the declaration defaults to `sub-task`", implement)
+        self.assertIn("count only parent tasks", status)
+        self.assertIn("count only those sub-tasks", status)
+        self.assertIn("Resolve the current track before choosing its next action", status)
+        self.assertIn("apply each track's own granularity", status)
+        self.assertIn("complete an active parent whose actionable sub-tasks are all `[x]`", status)
+        self.assertIn("resume the first active counted parent with no actionable sub-tasks", status)
+
+        implement_flow = read("misc/architect/flow-charts/architect-implement-flow.md")
+        status_flow = read("misc/architect/flow-charts/architect-status-flow.md")
+        self.assertIn("Task unit or actionable sub-task?", implement_flow)
+        self.assertIn("units selected by each plan's granularity", status_flow)
+
     def test_auto_mode_does_not_stop_for_task_size_or_unfinished_phases(self) -> None:
         paths = (
             "skills/architect-implement/SKILL.md",

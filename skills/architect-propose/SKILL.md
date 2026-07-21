@@ -20,6 +20,6 @@ Create one proposal track from approved specification and plan artifacts. Follow
 1. Read `references/propose-track-protocol.md` and core project context.
 2. Establish description and inferred track type.
 3. Draft, present, revise, and approve `spec.md`.
-4. Draft, present, revise, and approve `plan.md` from the project workflow.
+4. Ask for Task or Sub-task status granularity, default to Sub-task, then draft, present, revise, and approve `plan.md` from the project workflow.
 5. Recover management paths when needed, generate a safe ID, and run collision checks.
 6. Create artifacts, register the track, and report next steps without starting implementation.

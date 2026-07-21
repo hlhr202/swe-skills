@@ -22,6 +22,15 @@ Each Architect protocol separates four kinds of instruction so workflow behavior
 
 Protocol files are the runtime source of truth. Flow charts summarize them and must not introduce extra gates or side effects.
 
+## Task Status Granularity
+
+During proposal, Architect asks whether `plan.md` should synchronize status at `task` or `sub-task` granularity. `sub-task` remains the default for backward compatibility.
+
+- **Task:** Only parent tasks have checkboxes. Nested bullets are required implementation details completed within the parent task.
+- **Sub-task:** Parent tasks and actionable nested sub-tasks have checkboxes, preserving fine-grained progress synchronization.
+
+The selected value is recorded near the top of `plan.md`. Existing plans without a declaration continue to use `sub-task` behavior.
+
 ## Workflow Summary
 
 ```mermaid

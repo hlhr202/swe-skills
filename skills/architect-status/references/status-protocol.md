@@ -39,7 +39,7 @@ Required core files are `product.md`, `product-guidelines.md`, `tech-stack.md`, 
 
 Apply the first matching state:
 
-1. `Needs Attention`: malformed or duplicate registry entries, missing plans, multiple `[~]` registry tracks, registry/plan active-track mismatches, missing index, invalid metadata, or metadata mismatches.
+1. `Needs Attention`: malformed or duplicate registry entries, invalid task-status declarations, missing plans, multiple `[~]` registry tracks, registry/plan active-track mismatches, missing index, invalid metadata, or metadata mismatches.
 2. `Blocked`: an active blocker exists and no higher-priority condition applies.
 3. `Complete`: every parsed track and counted task unit is complete.
 4. `In Progress`: any track or counted unit is active, or completed and pending units coexist.
@@ -76,13 +76,15 @@ Metadata alignment:
 
 ### Plan parsing and counting
 
+- Read the `Task status granularity` declaration near the top of each plan; valid values are `task` and `sub-task`. A plan without this declaration defaults to `sub-task` for backward compatibility. Report any other value as malformed and parse it as `sub-task` best-effort.
 - A phase is a Markdown heading beginning with `##`.
 - A parent task is a non-indented checkbox task line such as `- [ ] Task: ...`, `- [~] Task: ...`, or `- [x] Task: ...`.
 - An actionable sub-task is an indented checkbox line.
-- Ignore plain bullets, summaries, notes, prose, and links.
-- If a parent has actionable sub-tasks, count only those sub-tasks as progress units.
-- If it has none, count the parent as one unit.
-- Never count both a parent and its actionable sub-tasks in the percentage.
+- With `task` granularity, count only parent tasks as progress units. Nested plain bullets are required implementation details but have no independent state.
+- With `sub-task` granularity, if a parent has actionable sub-tasks, count only those sub-tasks as progress units. If it has none, count the parent as one unit.
+- In either granularity, never count both a parent and its actionable sub-tasks in the percentage.
+- Ignore summaries, notes, prose, and links. In `sub-task` granularity, also ignore plain nested bullets as contextual details.
+- Report nested checkbox sub-tasks under an explicitly declared `task` plan as a granularity mismatch, but count only the parent tasks.
 - Completion percentage is `completed / total * 100`; report `0%` and explain when total is zero.
 
 Markers mean pending `[ ]`, in progress `[~]`, and complete `[x]`.
@@ -90,9 +92,12 @@ Markers mean pending `[ ]`, in progress `[~]`, and complete `[x]`.
 ### Current work and next action
 
 - Current track: the only registry `[~]` track; otherwise the first track whose plan contains `[~]` work.
-- Current phase and task: the phase and first `[~]` counted unit.
+- Current phase and task: the phase and first `[~]` counted unit; if none exists under `sub-task` granularity, use an active parent whose actionable sub-tasks are all complete.
 - If multiple registry tracks are `[~]`, list all and mark `Needs Attention`.
-- Next action: first `[~]` actionable sub-task; otherwise the first pending sub-task under the active parent; otherwise the first pending counted unit in registry order; otherwise `No pending tasks`.
+- Resolve the current track before choosing its next action, then apply that track's declared granularity. If no track is active, scan incomplete tracks in registry order and apply each track's own granularity.
+- Next action for `task` granularity: the first active parent task, otherwise the first pending parent task.
+- Next action for `sub-task` granularity: the first `[~]` actionable sub-task; otherwise the first pending sub-task under the active parent; otherwise complete an active parent whose actionable sub-tasks are all `[x]`; otherwise resume the first active counted parent with no actionable sub-tasks; otherwise the first pending counted unit in registry order.
+- If neither rule finds work, report `No pending tasks`.
 
 ### Blockers
 
@@ -131,6 +136,7 @@ Use this output shape:
 - **Progress**: <completed>/<total> tasks (<percentage>%)
 - **Tracks**: <completed>/<total> completed, <in-progress> in progress, <pending> pending
 - **Phases**: <total phases>
+- **Task Status Granularity**: <task|sub-task|mixed>
 - **Task Units**: <units>; <parent count> parent tasks, <sub-task count> actionable sub-tasks
 
 ## Current Work
@@ -145,7 +151,7 @@ Use this output shape:
 - <active blockers or `None detected`>
 
 ## Track Details
-- `<marker>` <track_id or unknown>: <description> — <completed>/<total> task units (<percentage>%)
+- `<marker>` <track_id or unknown>: <description> — <completed>/<total> task units (<percentage>%); granularity: <task|sub-task>
 
 ## Notes
 - <integrity issues, possible blockers, or limitations>

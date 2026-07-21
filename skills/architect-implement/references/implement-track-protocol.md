@@ -10,7 +10,7 @@ Implementation succeeds when:
 
 - One valid track is selected and its context is loaded.
 - The user selects Manual or Auto Mode before work begins.
-- Every actionable task and phase verification gate reaches completion in order.
+- Every status-managed task unit and phase verification gate reaches completion in order.
 - Required tests, coverage, and manual or automated verification succeed or their accepted limitations are recorded.
 - Registry, plan, metadata, and routine project documentation reflect the completed work.
 - The final track-scoped commit is verified, unless the user explicitly opts out.
@@ -24,7 +24,7 @@ Implementation succeeds when:
 - Keep Architect-managed reads and writes under `architect/`. Reject absolute paths, parent traversal (`..`), invalid IDs, and links outside `architect/tracks/`.
 - Capture the Git worktree before editing. Never modify, stage, or commit unrelated or ambiguous pre-existing changes.
 - Never use broad staging such as `git add .` or `git add -A`.
-- Do not skip pending or active tasks, sub-tasks, phase protocol meta-tasks, or Manual Mode confirmation gates.
+- Do not skip pending or active status-managed units, phase protocol meta-tasks, or Manual Mode confirmation gates.
 - Do not start a later phase while an earlier phase verification gate is incomplete.
 - Do not make a significant technology-stack change without approval.
 - Do not change sensitive product guidelines without approval in either mode.
@@ -43,6 +43,19 @@ new -> in_progress -> completed
 
 Registry marker and metadata status move together. A completed track may return to `in_progress` only after explicit reopening confirmation.
 
+### Task status granularity
+
+Read the declaration near the top of `plan.md`:
+
+```markdown
+> Task status granularity: `<task|sub-task>`
+```
+
+An older plan without the declaration defaults to `sub-task` for backward compatibility. Any other declared value makes the plan malformed.
+
+- **Task granularity:** parent tasks and phase protocol meta-tasks are the only state-managed units. Nested plain bullets are required implementation details of their parent, not separate state transitions.
+- **Sub-task granularity:** parent tasks, actionable checkbox sub-tasks, and phase protocol meta-tasks follow the existing state workflow. Plain nested bullets remain contextual details.
+
 ### Tasks and sub-tasks
 
 ```text
@@ -53,7 +66,7 @@ Registry marker and metadata status move together. A completed track may return 
 - `[~]`: active and must be resumed before later work.
 - `[x]`: completed and recorded.
 
-A phase is complete only when every parent task and actionable sub-task is `[x]` and its phase protocol meta-task, when present, is `[x]`.
+The state transition applies only to units managed by the selected Task status granularity. A phase is complete when every required status-managed checkbox is `[x]` and its phase protocol meta-task, when present, is `[x]`.
 
 The generated phase protocol meta-task is exactly `Task: Architect - User Manual Verification '<Phase Name>' (Protocol in workflow.md)`. Treat Markdown headings beginning with `##` as phase boundaries.
 
@@ -116,8 +129,10 @@ Classify baseline changes against the track spec and plan as related, unrelated,
 
 - Before selecting normal work, scan phases in file order for an earlier phase whose non-meta work is complete but whose phase protocol meta-task is `[ ]` or `[~]`; select that meta-task first.
 - Otherwise resume the first `[~]` parent task, then choose the next `[ ]` parent task.
-- Within a parent, resume the first `[~]` actionable sub-task, then choose the next `[ ]` sub-task.
-- Plain bullets, notes, summaries, and prose are not actionable.
+- With `sub-task` granularity, within a parent resume the first `[~]` actionable sub-task, then choose the next `[ ]` sub-task.
+- With `task` granularity, execute the parent as one unit and complete all nested plain-bullet details without separate status updates.
+- Plain nested bullets are required task details in `task` granularity. In `sub-task` granularity, plain bullets, notes, summaries, and prose are contextual and not separately actionable.
+- A `task` plan containing nested checkbox sub-tasks conflicts with its declaration and is malformed.
 - If no recognized task remains but unfinished checkbox work exists in an unrecognized structure, halt as malformed.
 
 ### Implementation modes
@@ -192,13 +207,14 @@ Loop sequentially:
 1. Select work using the task rules.
 2. Change a pending parent to `[~]` and save `plan.md` before application-code edits.
 3. For a phase protocol meta-task, skip normal implementation and run Section 8.
-4. For each actionable sub-task, persist `[ ] -> [~]`, perform the work, then persist `[~] -> [x]`.
-5. Follow workflow tests, coverage, documentation, and verification requirements.
-6. Manual Mode uses the runtime interaction mechanism for required human gates. Auto Mode handles only phase-level gates automatically.
-7. Complete and record one parent task at a time; do not batch-complete parents.
-8. Mark the parent `[x]` only after its actionable sub-tasks or direct work complete.
-9. Record the workflow task summary and use `no-commit` when no commit exists.
-10. Rescan the phase. Run the phase protocol before any later-phase work.
+4. With `sub-task` granularity, for each actionable sub-task persist `[ ] -> [~]`, perform the work, then persist `[~] -> [x]`.
+5. With `task` granularity, perform all nested details as part of the active parent and do not add or update sub-task checkboxes.
+6. Follow workflow tests, coverage, documentation, and verification requirements.
+7. Manual Mode uses the runtime interaction mechanism for required human gates. Auto Mode handles only phase-level gates automatically.
+8. Complete and record one parent task at a time; do not batch-complete parents.
+9. Mark the parent `[x]` only after all work selected by its granularity is complete.
+10. Record the workflow task summary and use `no-commit` when no commit exists.
+11. Rescan the phase. Run the phase protocol before any later-phase work.
 
 Make the smallest correct change and follow repository conventions. For persistent verification failure, stop after the workflow's allowed attempts.
 
@@ -226,7 +242,7 @@ For the generated phase protocol meta-task:
 
 ### 9. Finalize Track
 
-After every parent and actionable sub-task is `[x]`:
+After every unit managed by the selected Task status granularity is `[x]`:
 
 - Mark the registry `[x]`.
 - Set metadata to `completed` and refresh `updated_at`.
